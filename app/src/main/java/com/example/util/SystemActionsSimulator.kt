@@ -8,7 +8,11 @@ import android.widget.Toast
 
 class SystemActionsSimulator(private val context: Context) {
 
-    private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    private val audioManager = try {
+        context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    } catch (e: Throwable) {
+        null
+    }
 
     fun openApp(packageName: String, appName: String): Pair<Boolean, String> {
         val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
@@ -72,11 +76,12 @@ class SystemActionsSimulator(private val context: Context) {
     }
 
     fun adjustVolume(increase: Boolean): String {
+        val manager = audioManager ?: return "System volume simulated ${if (increase) "higher" else "lower"}."
         return try {
             val direction = if (increase) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER
-            audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, direction, AudioManager.FLAG_SHOW_UI)
-            val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-            val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+            manager.adjustStreamVolume(AudioManager.STREAM_MUSIC, direction, AudioManager.FLAG_SHOW_UI)
+            val currentVol = manager.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val maxVol = manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
             "System volume adjusted ${if (increase) "up" else "down"} (Current: $currentVol/$maxVol)."
         } catch (e: Exception) {
             "System volume updated ${if (increase) "up" else "down"}."
