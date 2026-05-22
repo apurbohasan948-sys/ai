@@ -61,11 +61,11 @@ fun NovaDashboard(viewModel: NovaViewModel) {
     val context = LocalContext.current
     var selectedTab by remember { mutableIntStateOf(0) }
 
-    // Unified color system (Cosmic Indigo Theme)
+    // Minimalist Monochrome / Classic Obsidian & Sand-Alabaster palette
     val backgroundGradient = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF0C091A), // Cosmic midnight top
-            Color(0xFF141226)  // Tech dark violet base
+            Color(0xFF080808), // Obsidian black top
+            Color(0xFF0F0F0F)  // Slate-charcoal bottom
         )
     )
 
@@ -73,34 +73,36 @@ fun NovaDashboard(viewModel: NovaViewModel) {
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
             NavigationBar(
-                containerColor = Color(0xFF16142A),
-                windowInsets = WindowInsets.navigationBars
+                containerColor = Color(0xFF080808),
+                tonalElevation = 0.dp,
+                windowInsets = WindowInsets.navigationBars,
+                modifier = Modifier.border(BorderStroke(0.5.dp, Color(0xFF1F1F1F)))
             ) {
                 NavigationBarItem(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
                     icon = { Icon(Icons.Default.Mic, contentDescription = "Voice Assistant") },
-                    label = { Text("Assistant") },
+                    label = { Text("Assistant", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFFD0BCFF),
-                        selectedTextColor = Color(0xFFD0BCFF),
-                        indicatorColor = Color(0xFF2C2442),
-                        unselectedIconColor = Color(0xFF8B8A9E),
-                        unselectedTextColor = Color(0xFF8B8A9E)
+                        selectedIconColor = Color(0xFF080808),
+                        selectedTextColor = Color(0xFFE6DFD5),
+                        indicatorColor = Color(0xFFE6DFD5),
+                        unselectedIconColor = Color(0xFF707070),
+                        unselectedTextColor = Color(0xFF707070)
                     ),
                     modifier = Modifier.testTag("tab_assistant")
                 )
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    icon = { Icon(Icons.Default.List, contentDescription = "Reminders") },
-                    label = { Text("Reminders") },
+                    icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Reminders") },
+                    label = { Text("Reminders", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFFD0BCFF),
-                        selectedTextColor = Color(0xFFD0BCFF),
-                        indicatorColor = Color(0xFF2C2442),
-                        unselectedIconColor = Color(0xFF8B8A9E),
-                        unselectedTextColor = Color(0xFF8B8A9E)
+                        selectedIconColor = Color(0xFF080808),
+                        selectedTextColor = Color(0xFFE6DFD5),
+                        indicatorColor = Color(0xFFE6DFD5),
+                        unselectedIconColor = Color(0xFF707070),
+                        unselectedTextColor = Color(0xFF707070)
                     ),
                     modifier = Modifier.testTag("tab_reminders")
                 )
@@ -108,27 +110,27 @@ fun NovaDashboard(viewModel: NovaViewModel) {
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                     icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "Automation") },
-                    label = { Text("Automation") },
+                    label = { Text("Automation", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFFD0BCFF),
-                        selectedTextColor = Color(0xFFD0BCFF),
-                        indicatorColor = Color(0xFF2C2442),
-                        unselectedIconColor = Color(0xFF8B8A9E),
-                        unselectedTextColor = Color(0xFF8B8A9E)
+                        selectedIconColor = Color(0xFF080808),
+                        selectedTextColor = Color(0xFFE6DFD5),
+                        indicatorColor = Color(0xFFE6DFD5),
+                        unselectedIconColor = Color(0xFF707070),
+                        unselectedTextColor = Color(0xFF707070)
                     ),
                     modifier = Modifier.testTag("tab_automation")
                 )
                 NavigationBarItem(
                     selected = selectedTab == 3,
                     onClick = { selectedTab = 3 },
-                    icon = { Icon(Icons.Default.Shield, contentDescription = "Permissions & Settings") },
-                    label = { Text("System") },
+                    icon = { Icon(Icons.Default.Shield, contentDescription = "Permissions") },
+                    label = { Text("System", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFFD0BCFF),
-                        selectedTextColor = Color(0xFFD0BCFF),
-                        indicatorColor = Color(0xFF2C2442),
-                        unselectedIconColor = Color(0xFF8B8A9E),
-                        unselectedTextColor = Color(0xFF8B8A9E)
+                        selectedIconColor = Color(0xFF080808),
+                        selectedTextColor = Color(0xFFE6DFD5),
+                        indicatorColor = Color(0xFFE6DFD5),
+                        unselectedIconColor = Color(0xFF707070),
+                        unselectedTextColor = Color(0xFF707070)
                     ),
                     modifier = Modifier.testTag("tab_system")
                 )
@@ -188,26 +190,26 @@ fun AssistantTab(viewModel: NovaViewModel) {
         ) {
             Column {
                 Text(
-                    text = "NOVA AI",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
-                    color = Color.White,
+                    text = "N  O  V  A",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFFE6DFD5),
                     letterSpacing = 2.sp
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
+                            .size(6.dp)
                             .clip(CircleShape)
                             .background(
-                                if (mode == "Online Hybrid") Color(0xFF81C784) else Color(0xFFFFB74D)
+                                if (mode == "Online Hybrid") Color(0xFFE6DFD5) else Color(0xFF444444)
                             )
                     )
                     Spacer(modifier = Modifier.size(6.dp))
                     Text(
-                        text = if (mode == "Online Hybrid") "Hybrid Core: Gemini" else "Local Core: Offline Mode",
-                        fontSize = 12.sp,
-                        color = Color(0xFF8B8A9E)
+                        text = if (mode == "Online Hybrid") "Hybrid Engine" else "Local Engine",
+                        fontSize = 11.sp,
+                        color = Color(0xFF8E8E93)
                     )
                 }
             }
@@ -217,24 +219,25 @@ fun AssistantTab(viewModel: NovaViewModel) {
                 IconButton(
                     onClick = { viewModel.clearAllLogs() },
                     modifier = Modifier
-                        .size(40.dp)
-                        .background(Color(0xFF2C2442), RoundedCornerShape(12.dp))
+                        .size(36.dp)
+                        .background(Color(0xFF121212), RoundedCornerShape(8.dp))
+                        .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
                         .testTag("clear_logs_button")
                 ) {
                     Icon(
                         Icons.Default.Delete,
                         contentDescription = "Clear Session logs",
-                        tint = Color(0xFFFF8A80),
-                        modifier = Modifier.size(20.dp)
+                        tint = Color(0xFFE6DFD5),
+                        modifier = Modifier.size(16.dp)
                     )
                 }
                 // Mode Toggle
                 IconButton(
                     onClick = { viewModel.toggleModelMode() },
                     modifier = Modifier
-                        .height(40.dp)
-                        .padding(horizontal = 4.dp)
-                        .background(Color(0xFF2C2442), RoundedCornerShape(12.dp))
+                        .height(36.dp)
+                        .background(Color(0xFF121212), RoundedCornerShape(8.dp))
+                        .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
                         .testTag("network_mode_toggle")
                 ) {
                     Row(
@@ -245,14 +248,14 @@ fun AssistantTab(viewModel: NovaViewModel) {
                         Icon(
                             if (mode == "Online Hybrid") Icons.Default.Cloud else Icons.Default.CloudOff,
                             contentDescription = "Core Engine Mode",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
+                            tint = Color(0xFFE6DFD5),
+                            modifier = Modifier.size(14.dp)
                         )
                         Text(
                             text = if (mode == "Online Hybrid") "Hybrid" else "Local",
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFFE6DFD5)
                         )
                     }
                 }
@@ -286,9 +289,9 @@ fun AssistantTab(viewModel: NovaViewModel) {
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(2f)
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0x4016142A))
-                .border(1.dp, Color(0xFF2E2445), RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF121212))
+                .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(12.dp))
                 .padding(8.dp)
         ) {
             if (logs.isEmpty()) {
@@ -301,13 +304,13 @@ fun AssistantTab(viewModel: NovaViewModel) {
                         Icons.Default.ChatBubbleOutline,
                         contentDescription = null,
                         tint = Color(0x33FFFFFF),
-                        modifier = Modifier.size(48.dp)
+                        modifier = Modifier.size(36.dp)
                     )
                     Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        "No ongoing speech conversations.\nSay " + '"' + "Hey Nova" + '"' + " to activate.",
-                        color = Color(0x55FFFFFF),
-                        fontSize = 13.sp,
+                        "No conversations recorded.\nSay " + '"' + "Hey Nova" + '"' + " or ask below.",
+                        color = Color(0x66FFFFFF),
+                        fontSize = 12.sp,
                         textAlign = TextAlign.Center
                     )
                 }
@@ -338,37 +341,38 @@ fun AssistantTab(viewModel: NovaViewModel) {
             IconButton(
                 onClick = { viewModel.toggleWakeWord() },
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(44.dp)
                     .background(
-                        if (alwaysOnWake) Color(0xFF2C2442) else Color(0x22FFFFFF),
-                        RoundedCornerShape(14.dp)
+                        if (alwaysOnWake) Color(0xFFE6DFD5) else Color(0xFF121212),
+                        RoundedCornerShape(8.dp)
                     )
+                    .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
                     .testTag("wake_word_always_on")
             ) {
                 Icon(
                     if (alwaysOnWake) Icons.Default.Hearing else Icons.Default.HearingDisabled,
                     contentDescription = "Always Listening status toggle",
-                    tint = if (alwaysOnWake) Color(0xFFD0BCFF) else Color(0xFF8B8A9E),
-                    modifier = Modifier.size(24.dp)
+                    tint = if (alwaysOnWake) Color(0xFF0D0D0D) else Color(0xFF8E8E93),
+                    modifier = Modifier.size(20.dp)
                 )
             }
 
             OutlinedTextField(
                 value = inputVal,
                 onValueChange = { inputVal = it },
-                placeholder = { Text("Ask Nova anything...", color = Color(0xFF8B8A9E), fontSize = 14.sp) },
+                placeholder = { Text("Ask Nova anything...", color = Color(0xFF8E8E93), fontSize = 13.sp) },
                 singleLine = true,
                 modifier = Modifier
                     .weight(1f)
                     .testTag("command_input_field"),
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(8.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = Color.White,
                     unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color(0xFFD0BCFF),
-                    unfocusedBorderColor = Color(0xFF2E2445),
-                    focusedContainerColor = Color(0xFF16142A),
-                    unfocusedContainerColor = Color(0xFF16142A)
+                    focusedBorderColor = Color(0xFFE6DFD5),
+                    unfocusedBorderColor = Color(0xFF1F1F1F),
+                    focusedContainerColor = Color(0xFF121212),
+                    unfocusedContainerColor = Color(0xFF121212)
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = {
@@ -395,23 +399,23 @@ fun AssistantTab(viewModel: NovaViewModel) {
                         inputVal = ""
                         keyboardController?.hide()
                     } else {
-                        // Toggle visual Listening mode
                         viewModel.setListening(!isListening)
                     }
                 },
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(44.dp)
                     .background(
-                        if (isListening) Color(0xFF00E5FF) else Color(0xFFD0BCFF),
-                        RoundedCornerShape(14.dp)
+                        if (isListening) Color(0xFFE6DFD5) else Color(0xFF121212),
+                        RoundedCornerShape(8.dp)
                     )
+                    .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
                     .testTag("action_execute_button")
             ) {
                 Icon(
                     if (inputVal.trim().isNotEmpty()) Icons.Default.Send else Icons.Default.Mic,
                     contentDescription = "Dispatch voice trigger",
-                    tint = Color(0xFF16142A),
-                    modifier = Modifier.size(24.dp)
+                    tint = if (isListening) Color(0xFF0D0D0D) else Color(0xFFE6DFD5),
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -449,19 +453,19 @@ fun LazyRowSuggestions(
                 prefixes[0] + baseCmd
             }
             Card(
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1F1B3E)),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
                 modifier = Modifier
                     .clickable { onSuggestionClicked(finalCmd) }
-                    .border(0.5.dp, Color(0xFF382F57), RoundedCornerShape(12.dp))
+                    .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(18.dp))
                     .testTag("suggestion_$baseCmd")
             ) {
                 Text(
                     text = finalCmd,
-                    color = Color(0xFFE2D6FF),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    color = Color(0xFFC7C7CC),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Normal,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
                 )
             }
         }
@@ -475,41 +479,31 @@ fun NovaPulsingSphere(
     isSpeaking: Boolean,
     activeApp: String
 ) {
-    // Canvas animation states
+    // Pulse animation states
     val transition = rememberInfiniteTransition(label = "pulse")
     val pulseSize by transition.animateFloat(
-        initialValue = 180f,
-        targetValue = 240f,
+        initialValue = 140f,
+        targetValue = 180f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
+            animation = tween(1500, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse_size"
     )
 
-    val waveRotation by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(4000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "wave_rot"
-    )
-
-    // Base color matches assistant states
+    // Base color matches minimalist alabaster sand elements
     val activeColor = when {
-        isListening -> Color(0xFF00E5FF)       // Aqua/Teal Listening
-        isProcessing -> Color(0xFF9E00FF)      // Amethyst AI thinking
-        isSpeaking -> Color(0xFFFF2D55)        // Red/Pink speaker feedback
-        else -> Color(0xFF2C2442)              // Standard sleep system status
+        isListening -> Color(0xFFE6DFD5)       // Warm Sand Alabaster
+        isProcessing -> Color(0xFFA8A29A)      // Platinum Slate
+        isSpeaking -> Color(0xFFFAF9F6)        // Pure Alabaster
+        else -> Color(0xFF333333)              // Quiet dark graphite
     }
 
     val stateText = when {
-        isListening -> "Hey Nova: Listening..."
-        isProcessing -> "Nova: Synthesizing system control..."
-        isSpeaking -> "Nova: Conversing out loud..."
-        else -> "Standby wake-word state."
+        isListening -> "Listening..."
+        isProcessing -> "Processing..."
+        isSpeaking -> "Speaking..."
+        else -> "Standby"
     }
 
     Column(
@@ -518,17 +512,17 @@ fun NovaPulsingSphere(
     ) {
         Box(
             modifier = Modifier
-                .size(240.dp)
+                .size(200.dp)
                 .testTag("nova_pulsing_sphere"),
             contentAlignment = Alignment.Center
         ) {
-            // Pulsing background rings
+            // Ambient classic background ring
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val circleRadius = if (isListening || isSpeaking || isProcessing) pulseSize else 180f
+                val circleRadius = if (isListening || isSpeaking || isProcessing) pulseSize else 120f
                 val brush = Brush.radialGradient(
                     colors = listOf(
-                        activeColor.copy(alpha = 0.35f),
-                        activeColor.copy(alpha = 0.10f),
+                        activeColor.copy(alpha = 0.12f),
+                        activeColor.copy(alpha = 0.02f),
                         Color.Transparent
                     ),
                     center = center,
@@ -540,30 +534,24 @@ fun NovaPulsingSphere(
                     center = center
                 )
 
-                // Draw technical decorative circular indicators
+                // Thin minimalist outline ring during action
                 if (isListening || isProcessing || isSpeaking) {
                     drawCircle(
-                        color = activeColor.copy(alpha = 0.5f),
-                        radius = 160f,
+                        color = activeColor.copy(alpha = 0.20f),
+                        radius = 110f,
                         center = center,
-                        style = Stroke(
-                            width = 2.dp.toPx(),
-                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(
-                                floatArrayOf(15f, 15f),
-                                waveRotation
-                            )
-                        )
+                        style = Stroke(width = 1.dp.toPx())
                     )
                 }
             }
 
-            // Core solid crystal ball
+            // Core elegant minimalist disk
             Card(
                 shape = CircleShape,
                 modifier = Modifier
-                    .size(130.dp)
-                    .shadow(16.dp, CircleShape),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF130E26))
+                    .size(96.dp)
+                    .border(1.dp, Color(0xFF1F1F1F), CircleShape),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF121212))
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -571,13 +559,13 @@ fun NovaPulsingSphere(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(110.dp)
+                            .size(68.dp)
                             .clip(CircleShape)
                             .background(
-                                Brush.linearGradient(
+                                Brush.radialGradient(
                                     colors = listOf(
-                                        activeColor.copy(alpha = 0.9f),
-                                        Color(0xFF03010A)
+                                        activeColor.copy(alpha = 0.85f),
+                                        Color(0xFF141414)
                                     )
                                 )
                             )
@@ -590,9 +578,9 @@ fun NovaPulsingSphere(
                                 else -> Icons.Default.Mic
                             },
                             contentDescription = "Visual State Indicator Icon",
-                            tint = Color.White,
+                            tint = if (isListening || isSpeaking || isProcessing) Color(0xFF080808) else Color(0xFFF5F5F7),
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(24.dp)
                                 .align(Alignment.Center)
                         )
                     }
@@ -600,25 +588,26 @@ fun NovaPulsingSphere(
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
-        // State & Active Intent Overlay Log
+        // State label
         Text(
             text = stateText,
-            color = Color.White,
-            fontWeight = FontWeight.Bold,
-            fontSize = 15.sp,
-            textAlign = TextAlign.Center
+            color = Color(0xFFFAF9F6),
+            fontWeight = FontWeight.Medium,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center,
+            letterSpacing = 1.sp
         )
 
         Spacer(modifier = Modifier.height(2.dp))
 
-        // Display Active Application context
+        // Active app or status matching classic details
         Text(
-            text = "Active Environment: $activeApp",
-            color = Color(0xFFA19FB9),
+            text = if (activeApp.isNotEmpty()) "Active context: $activeApp" else "System idle",
+            color = Color(0xFF8E8E93),
             fontWeight = FontWeight.Light,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             textAlign = TextAlign.Center
         )
     }
@@ -627,9 +616,9 @@ fun NovaPulsingSphere(
 @Composable
 fun SpeechBubble(log: AssistantLog) {
     val isUser = log.sender == "user"
-    val cardBg = if (isUser) Color(0xFF5D40A8) else Color(0xFF16142A)
+    val cardBg = if (isUser) Color(0xFFE6DFD5) else Color(0xFF181818)
     val alignment = if (isUser) Alignment.End else Alignment.Start
-    val txtColor = if (isUser) Color.White else Color(0xFFECEBFF)
+    val txtColor = if (isUser) Color(0xFF080808) else Color(0xFFFAF9F6)
 
     Column(
         modifier = Modifier
@@ -640,22 +629,23 @@ fun SpeechBubble(log: AssistantLog) {
         Row(
             verticalAlignment = Alignment.Top,
             horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-            modifier = Modifier.fillMaxWidth(0.85f)
+            modifier = Modifier.fillMaxWidth(0.88f)
         ) {
             if (!isUser) {
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF2E2445))
+                        .background(Color(0xFF121212))
+                        .border(1.dp, Color(0xFF1F1F1F), CircleShape)
                         .padding(4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.Android,
                         contentDescription = "Nova icon",
-                        tint = Color(0xFFD0BCFF),
-                        modifier = Modifier.size(18.dp)
+                        tint = Color(0xFFE6DFD5),
+                        modifier = Modifier.size(14.dp)
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -663,37 +653,36 @@ fun SpeechBubble(log: AssistantLog) {
 
             Card(
                 shape = RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 16.dp,
-                    bottomStart = if (isUser) 16.dp else 4.dp,
-                    bottomEnd = if (isUser) 4.dp else 16.dp
+                    topStart = 12.dp,
+                    topEnd = 12.dp,
+                    bottomStart = if (isUser) 12.dp else 2.dp,
+                    bottomEnd = if (isUser) 2.dp else 12.dp
                 ),
                 colors = CardDefaults.cardColors(containerColor = cardBg),
                 modifier = Modifier
                     .border(
                         1.dp,
-                        if (isUser) Color.Transparent else Color(0xFF2E2445),
+                        if (isUser) Color.Transparent else Color(0xFF1F1F1F),
                         RoundedCornerShape(
-                            topStart = 16.dp,
-                            topEnd = 16.dp,
-                            bottomStart = if (isUser) 16.dp else 4.dp,
-                            bottomEnd = if (isUser) 4.dp else 16.dp
+                            topStart = 12.dp,
+                            topEnd = 12.dp,
+                            bottomStart = if (isUser) 12.dp else 2.dp,
+                            bottomEnd = if (isUser) 2.dp else 12.dp
                         )
                     )
-                    .shadow(4.dp, RoundedCornerShape(12.dp))
             ) {
-                Column(modifier = Modifier.padding(12.dp)) {
+                Column(modifier = Modifier.padding(10.dp)) {
                     Text(
                         text = log.message,
                         color = txtColor,
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.Normal,
-                        lineHeight = 18.sp
+                        lineHeight = 17.sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = formatTime(log.timestamp),
-                        color = Color(0x60FFFFFF),
+                        color = if (isUser) Color(0x99222222) else Color(0x99FAF9F6),
                         fontSize = 9.sp,
                         modifier = Modifier.align(Alignment.End)
                     )
@@ -704,17 +693,17 @@ fun SpeechBubble(log: AssistantLog) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF5D40A8))
+                        .background(Color(0xFFE6DFD5))
                         .padding(4.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         Icons.Default.Person,
                         contentDescription = "User icon",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
+                        tint = Color(0xFF080808),
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }
@@ -745,29 +734,29 @@ fun RemindersTab(viewModel: NovaViewModel) {
             Column {
                 Text(
                     "SQLite Task Memory",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFFFAF9F6)
                 )
                 Text(
-                    "Track reminders and scheduler events offline",
-                    fontSize = 12.sp,
-                    color = Color(0xFF8B8A9E)
+                    "Manage reminders and events offline",
+                    fontSize = 11.sp,
+                    color = Color(0xFF8E8E93)
                 )
             }
 
             Button(
                 onClick = { openAddDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD0BCFF)),
-                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE6DFD5)),
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier.testTag("add_reminder_trigger_button")
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add tasks", tint = Color(0xFF130E26))
-                    Text("Add", color = Color(0xFF130E26), fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.Add, contentDescription = "Add tasks", tint = Color(0xFF080808), modifier = Modifier.size(16.dp))
+                    Text("Add", color = Color(0xFF080808), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -785,14 +774,14 @@ fun RemindersTab(viewModel: NovaViewModel) {
                 Icon(
                     Icons.Default.PlaylistAdd,
                     contentDescription = null,
-                    tint = Color(0x33FFFFFF),
-                    modifier = Modifier.size(56.dp)
+                    tint = Color(0x22FFFFFF),
+                    modifier = Modifier.size(48.dp)
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     "No offline reminders found.\nCreate one above to update the database.",
-                    color = Color(0x88FFFFFF),
-                    fontSize = 14.sp,
+                    color = Color(0x55FFFFFF),
+                    fontSize = 13.sp,
                     textAlign = TextAlign.Center
                 )
             }
@@ -818,18 +807,22 @@ fun RemindersTab(viewModel: NovaViewModel) {
     if (openAddDialog) {
         AlertDialog(
             onDismissRequest = { openAddDialog = false },
-            containerColor = Color(0xFF1F1B3E),
-            title = { Text("Schedule Offline Reminder", color = Color.White, fontWeight = FontWeight.Bold) },
+            containerColor = Color(0xFF121212),
+            modifier = Modifier.border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(28.dp)),
+            title = { Text("Schedule Offline Reminder", color = Color(0xFFFAF9F6), fontWeight = FontWeight.Medium, fontSize = 16.sp) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     OutlinedTextField(
                         value = titleInput,
                         onValueChange = { titleInput = it },
-                        label = { Text("Reminder Title", color = Color(0xFFBCAAA4)) },
+                        label = { Text("Reminder Title", color = Color(0xFF8E8E93)) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFFD0BCFF)
+                            focusedBorderColor = Color(0xFFE6DFD5),
+                            unfocusedBorderColor = Color(0xFF1F1F1F),
+                            focusedContainerColor = Color(0xFF0D0D0D),
+                            unfocusedContainerColor = Color(0xFF0D0D0D)
                         ),
                         singleLine = true,
                         modifier = Modifier
@@ -845,11 +838,14 @@ fun RemindersTab(viewModel: NovaViewModel) {
                         OutlinedTextField(
                             value = hourInput,
                             onValueChange = { if (it.length <= 2) hourInput = it },
-                            label = { Text("HH", color = Color(0xFFBCAAA4)) },
+                            label = { Text("HH", color = Color(0xFF8E8E93)) },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
-                                focusedBorderColor = Color(0xFFD0BCFF)
+                                focusedBorderColor = Color(0xFFE6DFD5),
+                                unfocusedBorderColor = Color(0xFF1F1F1F),
+                                focusedContainerColor = Color(0xFF0D0D0D),
+                                unfocusedContainerColor = Color(0xFF0D0D0D)
                             ),
                             singleLine = true,
                             modifier = Modifier.weight(1f)
@@ -857,11 +853,14 @@ fun RemindersTab(viewModel: NovaViewModel) {
                         OutlinedTextField(
                             value = minuteInput,
                             onValueChange = { if (it.length <= 2) minuteInput = it },
-                            label = { Text("MM", color = Color(0xFFBCAAA4)) },
+                            label = { Text("MM", color = Color(0xFF8E8E93)) },
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
-                                focusedBorderColor = Color(0xFFD0BCFF)
+                                focusedBorderColor = Color(0xFFE6DFD5),
+                                unfocusedBorderColor = Color(0xFF1F1F1F),
+                                focusedContainerColor = Color(0xFF0D0D0D),
+                                unfocusedContainerColor = Color(0xFF0D0D0D)
                             ),
                             singleLine = true,
                             modifier = Modifier.weight(1f)
@@ -871,7 +870,7 @@ fun RemindersTab(viewModel: NovaViewModel) {
                         Row(
                             modifier = Modifier
                                 .weight(1.5f)
-                                .border(1.dp, Color(0xFF382F57), RoundedCornerShape(8.dp)),
+                                .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp)),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
@@ -879,28 +878,28 @@ fun RemindersTab(viewModel: NovaViewModel) {
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .background(
-                                        if (periodInput == "AM") Color(0xFF5D40A8) else Color.Transparent,
+                                        if (periodInput == "AM") Color(0xFFE6DFD5) else Color.Transparent,
                                         RoundedCornerShape(8.dp)
                                     )
                                     .clickable { periodInput = "AM" }
                                     .padding(vertical = 12.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("AM", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("AM", color = if (periodInput == "AM") Color(0xFF080808) else Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                             Box(
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .background(
-                                        if (periodInput == "PM") Color(0xFF5D40A8) else Color.Transparent,
+                                        if (periodInput == "PM") Color(0xFFE6DFD5) else Color.Transparent,
                                         RoundedCornerShape(8.dp)
                                     )
                                     .clickable { periodInput = "PM" }
                                     .padding(vertical = 12.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("PM", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("PM", color = if (periodInput == "PM") Color(0xFF080808) else Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -916,15 +915,16 @@ fun RemindersTab(viewModel: NovaViewModel) {
                             openAddDialog = false
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD0BCFF)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE6DFD5)),
+                    shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.testTag("dialog_reminder_confirm_button")
                 ) {
-                    Text("Save To SQLite", color = Color(0xFF130E26), fontWeight = FontWeight.Bold)
+                    Text("Save", color = Color(0xFF080808), fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { openAddDialog = false }) {
-                    Text("Cancel", color = Color(0xFFBCAAA4))
+                    Text("Cancel", color = Color(0xFF8E8E93))
                 }
             }
         )
@@ -941,8 +941,8 @@ fun ReminderListItem(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("reminder_card_${reminder.id}"),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF16142A)),
-        border = BorderStroke(1.dp, Color(0xFF2E2445))
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
+        border = BorderStroke(1.dp, Color(0xFF1F1F1F))
     ) {
         Row(
             modifier = Modifier
@@ -960,8 +960,8 @@ fun ReminderListItem(
                     checked = reminder.isCompleted,
                     onCheckedChange = onCheckedChange,
                     colors = CheckboxDefaults.colors(
-                        checkedColor = Color(0xFFD0BCFF),
-                        checkmarkColor = Color(0xFF130E26)
+                        checkedColor = Color(0xFFE6DFD5),
+                        checkmarkColor = Color(0xFF080808)
                     ),
                     modifier = Modifier.testTag("reminder_checkbox_${reminder.id}")
                 )
@@ -969,9 +969,9 @@ fun ReminderListItem(
                 Column {
                     Text(
                         text = reminder.title,
-                        color = if (reminder.isCompleted) Color(0xFF8B8A9E) else Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
+                        color = if (reminder.isCompleted) Color(0xFF707070) else Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         style = if (reminder.isCompleted) LocalTextStyle.current.copy(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough) else LocalTextStyle.current
@@ -980,11 +980,11 @@ fun ReminderListItem(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Icon(Icons.Default.AccessTime, contentDescription = null, tint = Color(0xFFBCAAA4), modifier = Modifier.size(12.dp))
+                        Icon(Icons.Default.AccessTime, contentDescription = null, tint = Color(0xFF8E8E93), modifier = Modifier.size(12.dp))
                         Text(
                             text = reminder.timeLabel,
-                            color = Color(0xFFBCAAA4),
-                            fontSize = 12.sp
+                            color = Color(0xFF8E8E93),
+                            fontSize = 11.sp
                         )
                     }
                 }
@@ -1000,7 +1000,7 @@ fun ReminderListItem(
                     Icons.Default.Delete,
                     contentDescription = "Delete Reminder",
                     tint = Color(0xFFEF9A9A),
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
