@@ -46,12 +46,13 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.AssistantLog
+import kotlinx.coroutines.launch
 import com.example.viewmodel.NovaViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun NovaDashboard(viewModel: NovaViewModel) {
     val context = LocalContext.current
@@ -69,12 +70,19 @@ fun NovaDashboard(viewModel: NovaViewModel) {
     val offlineDbSize by viewModel.offlineDataSizeMb.collectAsStateWithLifecycle()
     val offlineDbExists by viewModel.offlineDataExists.collectAsStateWithLifecycle()
 
+    // Massive 15.4 GB Offline Brain downloader state bindings
+    val isDownloadingLargeBrain by viewModel.isDownloadingLargeBrain.collectAsStateWithLifecycle()
+    val largeBrainProgress by viewModel.largeBrainProgress.collectAsStateWithLifecycle()
+    val largeBrainSizeGb by viewModel.largeBrainSizeGb.collectAsStateWithLifecycle()
+    val largeBrainExists by viewModel.largeBrainExists.collectAsStateWithLifecycle()
+    val backgroundSyncProgressMb by viewModel.backgroundSyncProgressMb.collectAsStateWithLifecycle()
+
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     var inputVal by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    var showPermissionsPanel by remember { mutableStateOf(false) }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
     // Scroll to latest conversation bubbles automatically
     LaunchedEffect(logs.size) {
@@ -91,364 +99,621 @@ fun NovaDashboard(viewModel: NovaViewModel) {
         )
     )
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        contentWindowInsets = WindowInsets.systemBars
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(backgroundGradient)
-                .padding(innerPadding)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(
+                drawerContainerColor = Color(0xFF0D0C14),
+                drawerContentColor = Color.White,
+                modifier = Modifier.width(320.dp)
             ) {
-                // Pristine Sleek Header
-                Row(
+                LazyColumn(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Column {
-                        Text(
-                            text = "N O V A",
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFE6DFD5),
-                            letterSpacing = 3.sp
-                        )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(top = 2.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(6.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (mode == "Online Hybrid") Color(0xFFD0BCFF) else Color(0xFFA8A29A)
-                                    )
-                            )
-                            Spacer(modifier = Modifier.size(6.dp))
+                    item {
+                        Column(modifier = Modifier.padding(vertical = 12.dp)) {
                             Text(
-                                text = if (mode == "Online Hybrid") "Hybrid AI Core" else "Local Storage Engine (Direct)",
-                                fontSize = 11.sp,
-                                color = Color(0xFF8B8A9E),
-                                fontWeight = FontWeight.Medium
+                                text = "N O V A   C O R E",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFD0BCFF),
+                                letterSpacing = 2.sp
                             )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Settings & Context Controls",
+                                fontSize = 11.sp,
+                                color = Color(0xFF8B8A9E)
+                            )
+                        }
+                        HorizontalDivider(color = Color(0xFF1E1C29))
+                    }
+
+                    // Network Hybrid vs Local Mode Toggle Card
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF14131D)),
+                            border = BorderStroke(1.dp, Color(0xFF28253A)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Hybrid AI Core",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = if (mode == "Online Hybrid") "Hybrid Online Active" else "Direct Offline Local Engine",
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF8B8A9E)
+                                        )
+                                    }
+                                    Switch(
+                                        checked = mode == "Online Hybrid",
+                                        onCheckedChange = { viewModel.toggleModelMode() },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = Color(0xFFD0BCFF),
+                                            checkedTrackColor = Color(0xFF5E35B1)
+                                        )
+                                    )
+                                }
+                            }
                         }
                     }
 
-                    // Header Actions
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        // Permissions panel drawer button
-                        IconButton(
-                            onClick = { showPermissionsPanel = !showPermissionsPanel },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(Color(0xFF16142A), RoundedCornerShape(8.dp))
-                                .border(1.dp, Color(0xFF2E2445), RoundedCornerShape(8.dp))
-                                .testTag("toggle_security_panel")
+                    // Wake Word Always-On Toggle Card
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF14131D)),
+                            border = BorderStroke(1.dp, Color(0xFF28253A)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(
-                                Icons.Default.Shield,
-                                contentDescription = "System Security status",
-                                tint = if (showPermissionsPanel) Color(0xFFD0BCFF) else Color(0xFF8B8A9E),
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Voice wake-word trigger",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = Color.White
+                                        )
+                                        Text(
+                                            text = if (alwaysOnWake) "Always Listening Active" else "Wake Word Wake/Mic OFF",
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF8B8A9E)
+                                        )
+                                    }
+                                    Switch(
+                                        checked = alwaysOnWake,
+                                        onCheckedChange = { viewModel.toggleWakeWord() },
+                                        colors = SwitchDefaults.colors(
+                                            checkedThumbColor = Color(0xFFD0BCFF),
+                                            checkedTrackColor = Color(0xFF5E35B1)
+                                        )
+                                    )
+                                }
+                            }
                         }
+                    }
 
-                        // Clear Logs
-                        IconButton(
-                            onClick = { viewModel.clearAllLogs() },
+                    // Wikipedia / Offline database downloader pane inside Drawer
+                    item {
+                        Column {
+                            if (isDownloading) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1C182A)),
+                                    border = BorderStroke(1.dp, Color(0xFF382A5F)),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Text(
+                                            text = "Downloading Wikipedia Offline Database...",
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        LinearProgressIndicator(
+                                            progress = { downloadProgress },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(6.dp)
+                                                .clip(CircleShape),
+                                            color = Color(0xFFD0BCFF),
+                                            trackColor = Color(0xFF0F0A1E)
+                                        )
+                                        Text(
+                                            text = "${(downloadProgress * 100).toInt()}% completo (${offlineDbSize} MB)",
+                                            color = Color(0xFF8B8A9E),
+                                            fontSize = 9.sp,
+                                            modifier = Modifier.padding(top = 4.dp)
+                                        )
+                                    }
+                                }
+                            } else if (offlineDbExists) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1C0F)),
+                                    border = BorderStroke(0.5.dp, Color(0xFF1B3D23)),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Save,
+                                            contentDescription = null,
+                                            tint = Color(0xFF81C784),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Text(
+                                            text = "Offline Index Loaded (${offlineDbSize} MB)",
+                                            color = Color(0xFF81C784),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+                            } else {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF161422)),
+                                    border = BorderStroke(1.dp, Color(0xFF28253A)),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Download,
+                                                contentDescription = null,
+                                                tint = Color(0xFF8B8A9E),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(
+                                                text = "Offline DB Pending",
+                                                color = Color.White,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "Automatic Wikipedia provisioning triggers on first start if needed.",
+                                            color = Color(0xFF8B8A9E),
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Massive Offline Brain (15-16 GB) Downloader UI Card
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "O F F L I N E   B R A I N   S D",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFF48FB1), // Sweet soft pink highlights
+                                letterSpacing = 1.sp,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                            
+                            if (isDownloadingLargeBrain) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF2C1C24)),
+                                    border = BorderStroke(1.dp, Color(0xFFE91E63)),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            CircularProgressIndicator(
+                                                modifier = Modifier.size(12.dp),
+                                                color = Color(0xFFF48FB1),
+                                                strokeWidth = 1.5.dp
+                                            )
+                                            Text(
+                                                text = "Downloading Companion Brain (15.4 GB)...",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        LinearProgressIndicator(
+                                            progress = { largeBrainProgress },
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(6.dp)
+                                                .clip(CircleShape),
+                                            color = Color(0xFFF48FB1),
+                                            trackColor = Color(0xFF261D22)
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "${(largeBrainProgress * 100).toInt()}% completed (${String.format(Locale.US, "%.2f", largeBrainSizeGb)} GB / 15.4 GB Saved under SD Card/Nova_Offline_Brain)",
+                                            color = Color(0xFFF48FB1),
+                                            fontSize = 9.sp
+                                        )
+                                    }
+                                }
+                            } else if (largeBrainExists) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF142419)),
+                                    border = BorderStroke(1.dp, Color(0xFF4CAF50)),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Favorite,
+                                                contentDescription = null,
+                                                tint = Color(0xFF81C784),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(
+                                                text = "Offline Girlfriend Brain Active",
+                                                color = Color.White,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = "15.4 GB full intelligence database indexed completely inside SD Card. Running pure offline routing without limits!",
+                                            color = Color(0xFFA5D6A7),
+                                            fontSize = 10.sp,
+                                            lineHeight = 14.sp
+                                        )
+                                    }
+                                }
+                            } else {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF18151A)),
+                                    border = BorderStroke(1.dp, Color(0xFF3C2F3D)),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.CloudDownload,
+                                                contentDescription = null,
+                                                tint = Color(0xFFF48FB1),
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Text(
+                                                text = "Download Large Brain (15.4 GB)",
+                                                color = Color.White,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "Saves the complete offline companion intelligence, images, visual reference catalogs, and speech datasets to SD Card for limitless use.",
+                                            color = Color(0xFF8B8A9E),
+                                            fontSize = 9.sp,
+                                            lineHeight = 13.sp
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Button(
+                                            onClick = { viewModel.triggerLargeBrainDownload() },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63)),
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(32.dp),
+                                            contentPadding = PaddingValues(0.dp)
+                                        ) {
+                                            Text("Provision 15-16 GB Database", fontSize = 11.sp, color = Color.White)
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Limitless passive background sync status panel
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0E17)),
+                                border = BorderStroke(0.5.dp, Color(0xFF241F35)),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(6.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF00E676))
+                                        )
+                                        Text(
+                                            text = "Headless Syncing (No Limit)",
+                                            color = Color(0xFF8B8A9E),
+                                            fontSize = 9.sp
+                                        )
+                                    }
+                                    Text(
+                                        text = "+${String.format(Locale.US, "%.1f", backgroundSyncProgressMb)} MB dynamically downloaded",
+                                        color = Color(0xFF00E676),
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Permissions index panel inline inside drawer
+                    item {
+                        InlinePermissionsPanel(viewModel) {}
+                    }
+
+                    // Clear logs trigger row in Drawer
+                    item {
+                        Button(
+                            onClick = {
+                                viewModel.clearAllLogs()
+                                scope.launch { drawerState.close() }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F)),
+                            shape = RoundedCornerShape(8.dp),
                             modifier = Modifier
-                                .size(36.dp)
-                                .background(Color(0xFF121212), RoundedCornerShape(8.dp))
-                                .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
+                                .fillMaxWidth()
+                                .height(38.dp)
                                 .testTag("clear_logs_button")
                         ) {
                             Icon(
                                 Icons.Default.Delete,
-                                contentDescription = "Clear conversation buffers",
-                                tint = Color(0xFFE6DFD5),
+                                contentDescription = "Clear conversation history",
+                                tint = Color.White,
                                 modifier = Modifier.size(16.dp)
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Clear Conversations Logs", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
-
-                        // Local / Hybrid Toggle
+                    }
+                }
+            }
+        }
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            contentWindowInsets = WindowInsets.systemBars
+        ) { innerPadding ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(backgroundGradient)
+                    .padding(innerPadding)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    // Pristine Sleek Header with Drawer navigation trigger
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         IconButton(
-                            onClick = { viewModel.toggleModelMode() },
+                            onClick = { scope.launch { drawerState.open() } },
                             modifier = Modifier
-                                .height(36.dp)
-                                .background(Color(0xFF121212), RoundedCornerShape(8.dp))
-                                .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
-                                .testTag("network_mode_toggle")
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    if (mode == "Online Hybrid") Icons.Default.Cloud else Icons.Default.CloudOff,
-                                    contentDescription = "Connection context toggle",
-                                    tint = Color(0xFFE6DFD5),
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Text(
-                                    text = if (mode == "Online Hybrid") "Hybrid" else "Offline",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFE6DFD5)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Callouts for Download Provision status/Wikipedia offline databases
-                AnimatedVisibility(
-                    visible = isDownloading,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1625)),
-                        border = BorderStroke(1.dp, Color(0xFF32284F)),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.Download, contentDescription = null, tint = Color(0xFFD0BCFF), modifier = Modifier.size(18.dp))
-                                    Text("Wikipedia Offline DB Provisioning...", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                }
-                                Text("${(downloadProgress * 100).toInt()}%", color = Color(0xFFD0BCFF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LinearProgressIndicator(
-                                progress = { downloadProgress },
-                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-                                color = Color(0xFFD0BCFF),
-                                trackColor = Color(0xFF100B1E)
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                "Storing high-fidelity Wikipedia summary tables onto SD card: ${offlineDbSize} MB / 42 MB complete.",
-                                color = Color(0xFF8B8A9E),
-                                fontSize = 11.sp
-                            )
-                        }
-                    }
-                }
-
-                // Display info when offline database exists
-                AnimatedVisibility(
-                    visible = !isDownloading && offlineDbExists && logs.size <= 2,
-                    enter = slideInVertically() + fadeIn(),
-                    exit = slideOutVertically() + fadeOut()
-                ) {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0E13)),
-                        border = BorderStroke(0.5.dp, Color(0xFF1E1C24)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(Icons.Default.CloudQueue, contentDescription = null, tint = Color(0xFFB39DDB), modifier = Modifier.size(16.dp))
-                            Text(
-                                text = "Offline Wiki Index loaded (${offlineDbSize} MB). Talk naturally in Bengali or English!",
-                                color = Color(0xFFA8A29A),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Normal
-                            )
-                        }
-                    }
-                }
-
-                // Collapsible Security/Permissions Overlay Control
-                AnimatedVisibility(
-                    visible = showPermissionsPanel,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
-                    Box(modifier = Modifier.padding(vertical = 8.dp)) {
-                        InlinePermissionsPanel(viewModel) {
-                            showPermissionsPanel = false
-                        }
-                    }
-                }
-
-                // 2. Central visual pulsing intelligence sphere
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1.2f),
-                    contentAlignment = Alignment.Center
-                ) {
-                    NovaPulsingSphere(isListening, isProcessing, isSpeaking, activeApp)
-                }
-
-                // 3. Suggestions Horizontal Row
-                LazyRowSuggestions(
-                    alwaysOnWake = alwaysOnWake,
-                    onSuggestionClicked = { inputVal = it }
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // 4. Clean Immersive Chat Area
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(2.0f)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF0B0B0D))
-                        .border(1.dp, Color(0xFF16161B), RoundedCornerShape(14.dp))
-                        .padding(8.dp)
-                ) {
-                    if (logs.isEmpty()) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.Center,
-                            horizontalAlignment = Alignment.CenterHorizontally
+                                .size(38.dp)
+                                .background(Color(0xFF16142A), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFF28253A), RoundedCornerShape(8.dp))
+                                .testTag("menu_drawer_button")
                         ) {
                             Icon(
-                                Icons.Default.ChatBubbleOutline,
-                                contentDescription = null,
-                                tint = Color(0x1AFFFFFF),
-                                modifier = Modifier.size(38.dp)
+                                Icons.Default.Menu,
+                                contentDescription = "Open Settings Control Index",
+                                tint = Color(0xFFD0BCFF),
+                                modifier = Modifier.size(18.dp)
                             )
-                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column {
                             Text(
-                                "No logs registered.\nSay \"Hey Nova\" or \"নোভা, কল করো মম কে!\"",
-                                color = Color(0x4DFFFFFF),
-                                fontSize = 12.sp,
-                                textAlign = TextAlign.Center,
-                                lineHeight = 16.sp
+                                text = "N O V A",
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFFE6DFD5),
+                                letterSpacing = 3.sp
                             )
-                        }
-                    } else {
-                        LazyColumn(
-                            state = listState,
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            items(logs) { log ->
-                                SpeechBubble(log)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(top = 2.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (mode == "Online Hybrid") Color(0xFFD0BCFF) else Color(0xFFA8A29A)
+                                        )
+                                )
+                                Spacer(modifier = Modifier.size(6.dp))
+                                Text(
+                                    text = if (mode == "Online Hybrid") "Hybrid AI Core" else "Local Storage Engine (Direct)",
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF8B8A9E),
+                                    fontWeight = FontWeight.Medium
+                                )
                             }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                // 5. Query Fields and Dynamic Mic trigger handles
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Always listening wake switch
-                    IconButton(
-                        onClick = { viewModel.toggleWakeWord() },
+                    // 4. Immersive Full-Height Chat Area
+                    Box(
                         modifier = Modifier
-                            .size(44.dp)
-                            .background(
-                                if (alwaysOnWake) Color(0xFFE6DFD5) else Color(0xFF121212),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
-                            .testTag("wake_word_always_on")
-                    ) {
-                        Icon(
-                            if (alwaysOnWake) Icons.Default.Hearing else Icons.Default.HearingDisabled,
-                            contentDescription = "Toggle wake word trigger",
-                            tint = if (alwaysOnWake) Color(0xFF0F0E13) else Color(0xFF8E8E93),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    OutlinedTextField(
-                        value = inputVal,
-                        onValueChange = { inputVal = it },
-                        placeholder = { Text("নোভা কে জিজ্ঞেস করুন...", color = Color(0xFF8B8A9E), fontSize = 13.sp) },
-                        singleLine = true,
-                        modifier = Modifier
+                            .fillMaxWidth()
                             .weight(1f)
-                            .testTag("command_input_field"),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFFE6DFD5),
-                            unfocusedBorderColor = Color(0xFF1A1A22),
-                            focusedContainerColor = Color(0xFF121212),
-                            unfocusedContainerColor = Color(0xFF121212)
-                        ),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = {
-                            if (inputVal.trim().isNotEmpty()) {
-                                viewModel.submitCommand(inputVal)
-                                inputVal = ""
-                                keyboardController?.hide()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF0B0B0D))
+                            .border(1.dp, Color(0xFF16161B), RoundedCornerShape(14.dp))
+                            .padding(8.dp)
+                    ) {
+                        if (logs.isEmpty()) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    Icons.Default.ChatBubbleOutline,
+                                    contentDescription = null,
+                                    tint = Color(0x1AFFFFFF),
+                                    modifier = Modifier.size(38.dp)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    "No logs registered.\nType naturally below to talk with Nova!",
+                                    color = Color(0x4DFFFFFF),
+                                    fontSize = 12.sp,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 16.sp
+                                )
                             }
-                        }),
-                        trailingIcon = {
-                            if (inputVal.isNotEmpty()) {
-                                IconButton(onClick = { inputVal = "" }) {
-                                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color.Gray)
+                        } else {
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                items(logs) { log ->
+                                    SpeechBubble(log)
                                 }
                             }
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 3. Suggestions Horizontal Row
+                    LazyRowSuggestions(
+                        alwaysOnWake = alwaysOnWake,
+                        onSuggestionClicked = { inputVal = it }
                     )
 
-                    // Execute mic/text trigger
-                    IconButton(
-                        onClick = {
-                            if (inputVal.trim().isNotEmpty()) {
-                                viewModel.submitCommand(inputVal)
-                                inputVal = ""
-                                keyboardController?.hide()
-                            } else {
-                                viewModel.setListening(!isListening)
-                            }
-                        },
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // 5. Query Fields and Dynamic Mic trigger handles completely simplified
+                    Row(
                         modifier = Modifier
-                            .size(44.dp)
-                            .background(
-                                if (isListening) Color(0xFFE6DFD5) else Color(0xFF121212),
-                                RoundedCornerShape(8.dp)
-                            )
-                            .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
-                            .testTag("action_execute_button")
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(
-                            if (inputVal.trim().isNotEmpty()) Icons.Default.Send else Icons.Default.Mic,
-                            contentDescription = "Trigger Speech input",
-                            tint = if (isListening) Color(0xFF0F0E13) else Color(0xFFE6DFD5),
-                            modifier = Modifier.size(20.dp)
+                        OutlinedTextField(
+                            value = inputVal,
+                            onValueChange = { inputVal = it },
+                            placeholder = { Text("নোভা কে জিজ্ঞেস করুন...", color = Color(0xFF8B8A9E), fontSize = 13.sp) },
+                            singleLine = true,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("command_input_field"),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFFE6DFD5),
+                                unfocusedBorderColor = Color(0xFF1A1A22),
+                                focusedContainerColor = Color(0xFF121212),
+                                unfocusedContainerColor = Color(0xFF121212)
+                            ),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                            keyboardActions = KeyboardActions(onSend = {
+                                if (inputVal.trim().isNotEmpty()) {
+                                    viewModel.submitCommand(inputVal)
+                                    inputVal = ""
+                                    keyboardController?.hide()
+                                }
+                            }),
+                            trailingIcon = {
+                                if (inputVal.isNotEmpty()) {
+                                    IconButton(onClick = { inputVal = "" }) {
+                                        Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color.Gray)
+                                    }
+                                }
+                            }
                         )
+
+                        // Execute text direct trigger
+                        IconButton(
+                            onClick = {
+                                if (inputVal.trim().isNotEmpty()) {
+                                    viewModel.submitCommand(inputVal)
+                                    inputVal = ""
+                                    keyboardController?.hide()
+                                }
+                            },
+                            enabled = inputVal.trim().isNotEmpty(),
+                            modifier = Modifier
+                                .size(44.dp)
+                                .background(
+                                    if (inputVal.trim().isNotEmpty()) Color(0xFFE6DFD5) else Color(0xFF121212),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
+                                .testTag("action_execute_button")
+                        ) {
+                            Icon(
+                                Icons.Default.Send,
+                                contentDescription = "Send text input command",
+                                tint = if (inputVal.trim().isNotEmpty()) Color(0xFF0F0E13) else Color(0xFF8E8E93),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -723,9 +988,18 @@ fun NovaPulsingSphere(
 @Composable
 fun SpeechBubble(log: AssistantLog) {
     val isUser = log.sender == "user"
-    val bubbleColor = if (isUser) Color(0xFF1E1B29) else Color(0xFF121212)
-    val textColor = if (isUser) Color.White else Color(0xFFE6DFD5)
+    val bubbleColor = if (isUser) Color(0xFF1E1B29) else Color(0xFF2C151B) // Rosy pink bubble for girlfriend
+    val textColor = if (isUser) Color.White else Color(0xFFFFEBEE) // Warm sweet text color for girlfriend
     val alignment = if (isUser) Alignment.End else Alignment.Start
+
+    val msg = log.message
+    val hasImagePath = msg.contains("📂 Path: ") || msg.contains("📂 সংরক্ষিত ফাইল পাথ: ")
+    val extractedPath = if (hasImagePath) {
+        val token = if (msg.contains("📂 Path: ")) "📂 Path: " else "📂 সংরক্ষিত ফাইল পাথ: "
+        msg.substringAfter(token).substringBefore("\n").trim()
+    } else {
+        null
+    }
 
     Column(
         modifier = Modifier
@@ -733,6 +1007,28 @@ fun SpeechBubble(log: AssistantLog) {
             .testTag("speech_bubble_${log.sender}"),
         horizontalAlignment = alignment
     ) {
+        // Name Header for girlfriend to make it sweet & humanized
+        if (!isUser) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(start = 6.dp, bottom = 2.dp)
+            ) {
+                Icon(
+                    Icons.Default.Favorite,
+                    contentDescription = null,
+                    tint = Color(0xFFE91E63),
+                    modifier = Modifier.size(10.dp)
+                )
+                Text(
+                    text = "নোভা সোনা",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFF48FB1)
+                )
+            }
+        }
+
         Row(
             horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
             modifier = Modifier.fillMaxWidth()
@@ -751,7 +1047,7 @@ fun SpeechBubble(log: AssistantLog) {
                     .background(bubbleColor)
                     .border(
                         1.dp,
-                        if (isUser) Color(0xFF342E46) else Color(0xFF1F1F1F),
+                        if (isUser) Color(0xFF342E46) else Color(0xFFE91E63), // Pink border for girlfriend's responses
                         RoundedCornerShape(
                             topStart = 14.dp,
                             topEnd = 14.dp,
@@ -761,13 +1057,78 @@ fun SpeechBubble(log: AssistantLog) {
                     )
                     .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
-                Text(
-                    text = log.message,
-                    color = textColor,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    fontWeight = FontWeight.Normal
-                )
+                Column {
+                    Text(
+                        text = log.message,
+                        color = textColor,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+
+                    // Render gorgeous high-contrast reference image snapshot card of the SD Storage JPG
+                    if (extractedPath != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFFE91E63), RoundedCornerShape(8.dp)),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF140A0D))
+                        ) {
+                            Column {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(130.dp)
+                                        .background(
+                                            Brush.verticalGradient(
+                                                colors = listOf(Color(0xFF880E4F), Color(0xFF1A000C))
+                                            )
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            Icons.Default.Favorite,
+                                            contentDescription = null,
+                                            tint = Color(0xFFF48FB1),
+                                            modifier = Modifier.size(34.dp)
+                                        )
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = "REFERENCE IMAGE SECURED",
+                                            color = Color.White,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp
+                                        )
+                                        Text(
+                                            text = "150 KB JPEG • Local SD Storage",
+                                            color = Color(0xFFF48FB1),
+                                            fontSize = 9.sp
+                                        )
+                                    }
+                                }
+                                Column(modifier = Modifier.padding(8.dp)) {
+                                    Text(
+                                        text = "📂 SD File Path:",
+                                        color = Color(0xFF8B8A9E),
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = extractedPath,
+                                        color = Color(0xFFFF80AB),
+                                        fontSize = 8.sp,
+                                        fontFamily = FontFamily.Monospace,
+                                        lineHeight = 11.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
         Text(

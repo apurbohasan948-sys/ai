@@ -25,8 +25,6 @@ class TextToSpeechManager(private val context: Context) {
     private fun initTtsIfNeeded() {
         if (tts != null || isInitializing) return
         
-        // Safety guard: if no TTS engines are present on the device/emulator, 
-        // completely skip TTS initialization to prevent asynchronous binder crashes.
         if (!isTtsEngineAvailable(context)) {
             Log.w("TTS", "No TTS engine found on this device. Muting audio speech outputs.")
             return
@@ -37,13 +35,19 @@ class TextToSpeechManager(private val context: Context) {
             tts = TextToSpeech(context.applicationContext) { status ->
                 try {
                     if (status == TextToSpeech.SUCCESS) {
-                        val result = tts?.setLanguage(Locale.US)
-                        if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                            Log.e("TTS", "Language is not supported or missing data")
-                        } else {
-                            isInitialized = true
-                            Log.d("TTS", "TTS system online and initialized.")
+                        // Detect if Bengali local is supported, otherwise fallback to standard default Locale
+                        val bngLocale = Locale("bn", "BD")
+                        val langResult = tts?.setLanguage(bngLocale)
+                        if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                            tts?.setLanguage(Locale.US)
                         }
+                        
+                        // Sweet human-like girlfriend voice tuning adjustments
+                        tts?.setSpeechRate(0.82f) // Slower, relaxed, extremely clear and easily understandable pace
+                        tts?.setPitch(1.23f)      // Gently raised warm, soft female tone pitch
+                        
+                        isInitialized = true
+                        Log.d("TTS", "Sweet Assistant TTS system online and configured.")
                     } else {
                         Log.e("TTS", "Failed to initialize TTS engine with status: $status")
                     }
@@ -65,9 +69,27 @@ class TextToSpeechManager(private val context: Context) {
         try {
             initTtsIfNeeded()
             if (isInitialized && tts != null) {
-                tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, "NovaTTS")
+                // Dynamically select locale based on presence of Bengali characters
+                val hasBengali = text.any { it in '\u0980'..'\u09FF' }
+                if (hasBengali) {
+                    tts?.setLanguage(Locale("bn", "BD"))
+                } else {
+                    tts?.setLanguage(Locale.US)
+                }
+                
+                // Re-enforce optimal gentle reading metrics
+                tts?.setSpeechRate(0.82f) 
+                tts?.setPitch(1.23f)
+                
+                // Clean speech format to remove tech/log tags
+                val cleanedText = text
+                    .replace(Regex("\\[[^\\]]*\\]"), "") // Remove [Local Engine] brackets for natural voice text
+                    .replace(Regex("(?i)system alert:|error:"), "")
+                    .trim()
+                
+                tts?.speak(cleanedText, TextToSpeech.QUEUE_FLUSH, null, "NovaTTS")
             } else {
-                Log.d("TTS", "Muted speak (TTS uninitialized): $text")
+                Log.d("TTS", "Locally muted speak (TTS offline): $text")
             }
         } catch (e: Throwable) {
             Log.e("TTS", "Error during tts.speak for: $text", e)
