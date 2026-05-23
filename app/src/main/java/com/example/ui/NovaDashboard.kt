@@ -77,6 +77,10 @@ fun NovaDashboard(viewModel: NovaViewModel) {
     val largeBrainExists by viewModel.largeBrainExists.collectAsStateWithLifecycle()
     val backgroundSyncProgressMb by viewModel.backgroundSyncProgressMb.collectAsStateWithLifecycle()
 
+    val storageLocation by viewModel.storageLocation.collectAsStateWithLifecycle()
+    val userPermissionPhoneStorage by viewModel.userPermissionPhoneStorage.collectAsStateWithLifecycle()
+    val allowedLimitGb by viewModel.allowedLimitGb.collectAsStateWithLifecycle()
+
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     var inputVal by remember { mutableStateOf("") }
@@ -445,6 +449,119 @@ fun NovaDashboard(viewModel: NovaViewModel) {
                                     }
                                 }
                             }
+                            // Real-time Storage Limits & Permissions Control panel as requested by user
+                            Spacer(modifier = Modifier.height(10.dp))
+                                    Text(
+                                        text = "S T O R A G E   C O N F I G S",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFF48FB1),
+                                        letterSpacing = 1.sp,
+                                        modifier = Modifier.padding(top = 10.dp)
+                                    )
+
+                                    Card(
+                                        colors = CardDefaults.cardColors(containerColor = Color(0xFF14131D)),
+                                        border = BorderStroke(1.dp, Color(0xFF28253A)),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Text(
+                                                text = "রিয়েল-টাইম রাইট ডিরেক্টরি (Target Location)",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                listOf("SD Card", "Phone Storage").forEach { loc ->
+                                                    val isSelected = storageLocation == loc
+                                                    Button(
+                                                        onClick = { viewModel.setStorageLocation(loc) },
+                                                        colors = ButtonDefaults.buttonColors(
+                                                            containerColor = if (isSelected) Color(0xFFE91E63) else Color(0xFF1C1A24)
+                                                        ),
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        modifier = Modifier.weight(1f).height(28.dp),
+                                                        contentPadding = PaddingValues(0.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = if (loc == "SD Card") "এসডি কার্ড" else "ফোন স্টোরেজ",
+                                                            fontSize = 10.sp,
+                                                            color = if (isSelected) Color.White else Color(0xFF8B8A9E)
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            Spacer(modifier = Modifier.height(12.dp))
+
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = "ফোন স্টোরেজ ব্যবহারের অনুমতি",
+                                                        color = Color.White,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Text(
+                                                        text = "এসডি কার্ড ফুল হলে ফোন মেমরিতে ডাটার সিকিউর রাইট",
+                                                        color = Color(0xFF8B8A9E),
+                                                        fontSize = 8.sp,
+                                                        lineHeight = 11.sp
+                                                    )
+                                                }
+                                                Switch(
+                                                    checked = userPermissionPhoneStorage,
+                                                    onCheckedChange = { viewModel.toggleUserPermissionPhoneStorage() },
+                                                    colors = SwitchDefaults.colors(
+                                                        checkedThumbColor = Color(0xFFF48FB1),
+                                                        checkedTrackColor = Color(0xFFE91E63)
+                                                    )
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.height(12.dp))
+
+                                            Column {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(
+                                                        text = "সর্বোচ্চ বরাদ্দকৃত লিমিট:",
+                                                        color = Color.White,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Text(
+                                                        text = "${allowedLimitGb.toInt()} GB",
+                                                        color = Color(0xFFF48FB1),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                                Slider(
+                                                    value = allowedLimitGb,
+                                                    onValueChange = { viewModel.setAllowedLimitGb(it) },
+                                                    valueRange = 5f..50f,
+                                                    colors = SliderDefaults.colors(
+                                                        thumbColor = Color(0xFFF48FB1),
+                                                        activeTrackColor = Color(0xFFE91E63),
+                                                        inactiveTrackColor = Color(0xFF241F2C)
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
 
                             // Limitless passive background sync status panel
                             Card(

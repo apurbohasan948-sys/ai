@@ -2,6 +2,7 @@ package com.example.util
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.util.Log
 import java.util.Locale
@@ -43,8 +44,28 @@ class TextToSpeechManager(private val context: Context) {
                         }
                         
                         // Sweet human-like girlfriend voice tuning adjustments
-                        tts?.setSpeechRate(0.82f) // Slower, relaxed, extremely clear and easily understandable pace
-                        tts?.setPitch(1.23f)      // Gently raised warm, soft female tone pitch
+                        tts?.setSpeechRate(0.85f) // Relaxed, sweet and extremely clear pace
+                        tts?.setPitch(1.25f)      // Soft, sweet raised feminine tone pitch
+                        
+                        // Select best female Voice object dynamically
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            try {
+                                val voiceList = tts?.voices
+                                if (!voiceList.isNullOrEmpty()) {
+                                    val preferredVoice = voiceList.firstOrNull { voice ->
+                                        voice.locale.language == "bn" && (voice.name.lowercase().contains("female") || voice.name.lowercase().contains("f-") || voice.name.lowercase().contains("local"))
+                                    } ?: voiceList.firstOrNull { voice ->
+                                        voice.locale.language == "en" && (voice.name.lowercase().contains("female") || voice.name.lowercase().contains("f-"))
+                                    }
+                                    if (preferredVoice != null) {
+                                        tts?.voice = preferredVoice
+                                        Log.d("TTS", "Successfully configured premium female Voice: ${preferredVoice.name}")
+                                    }
+                                }
+                            } catch (ve: Exception) {
+                                Log.e("TTS", "Voice object assignment error skipped", ve)
+                            }
+                        }
                         
                         isInitialized = true
                         Log.d("TTS", "Sweet Assistant TTS system online and configured.")
@@ -78,8 +99,8 @@ class TextToSpeechManager(private val context: Context) {
                 }
                 
                 // Re-enforce optimal gentle reading metrics
-                tts?.setSpeechRate(0.82f) 
-                tts?.setPitch(1.23f)
+                tts?.setSpeechRate(0.85f) 
+                tts?.setPitch(1.25f)
                 
                 // Clean speech format to remove tech/log tags
                 val cleanedText = text

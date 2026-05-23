@@ -2,6 +2,7 @@ package com.example
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -53,6 +54,18 @@ class MainActivity : ComponentActivity() {
         // Resolve viewModel via factory injection
         val viewModelFactory = NovaViewModelFactory(application, repository)
         val viewModel = ViewModelProvider(this, viewModelFactory)[NovaViewModel::class.java]
+
+        // Start Nova Background Phrase Listener Service
+        try {
+            val serviceIntent = Intent(this, com.example.service.NovaBackgroundService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Failed starting NovaBackgroundService", e)
+        }
 
         // Collect screenshot capture signals flowing from ViewModel
         lifecycleScope.launch {
