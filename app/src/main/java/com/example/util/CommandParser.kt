@@ -89,7 +89,7 @@ object CommandParser {
         }
 
         if (cleanText.isEmpty()) {
-            val isBengali = input.contains(Regex("[ক- Mahoneyক্ষ]")) || input.contains("নোভা")
+            val isBengali = input.contains(Regex("[\\u0980-\\u09FF]")) || input.contains("নোভা")
             return ParsedCommand(
                 hasWakeWord = hasWakeOn,
                 matchedWakeWord = matchedWakeWord,
@@ -100,7 +100,7 @@ object CommandParser {
             )
         }
 
-        val isBengali = cleanText.contains(Regex("[ক-যড়-য়অ-ঊে-ৌ্]"))
+        val isBengali = cleanText.contains(Regex("[\\u0980-\\u09FF]"))
 
         // --- Classify multilingual actions ---
 

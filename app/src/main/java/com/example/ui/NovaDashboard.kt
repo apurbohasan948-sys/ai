@@ -605,7 +605,7 @@ fun LazyRowSuggestions(
     ) {
         items(items) { baseCmd ->
             // Smart Bengali vs English prefixing
-            val prefix = if (baseCmd.contains(Regex("[ক- Mahoneyক্ষ]")) || baseCmd.contains("মম") || baseCmd.contains("মা")) {
+            val prefix = if (baseCmd.contains(Regex("[\\u0980-\\u09FF]")) || baseCmd.contains("মম") || baseCmd.contains("মা")) {
                 prefixes[1]
             } else if (baseCmd.startsWith("what") || baseCmd.startsWith("tell") || baseCmd.startsWith("volume") || baseCmd.startsWith("send")) {
                 prefixes[0]
