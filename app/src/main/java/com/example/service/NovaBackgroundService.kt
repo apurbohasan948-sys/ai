@@ -23,13 +23,49 @@ class NovaBackgroundService : Service() {
     private val channelId = "nova_background_channel"
     private val notificationId = 1845
 
+    companion object {
+        private var instance: NovaBackgroundService? = null
+        var isAppInForeground = false
+            set(value) {
+                field = value
+                if (value) {
+                    instance?.stopListeningImmediate()
+                } else {
+                    instance?.startListeningLoop()
+                }
+            }
+    }
+
     override fun onCreate() {
         super.onCreate()
+        instance = this
         Log.d("NovaBgService", "Background listener service created")
         createNotificationChannel()
-        startForeground(notificationId, createNotification())
+
+        // Safely start foreground service depending on SDK version and permissions
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    notificationId,
+                    createNotification(),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                )
+            } else {
+                startForeground(notificationId, createNotification())
+            }
+        } catch (e: Exception) {
+            Log.e("NovaBgService", "Failed starting foreground service with microphone type safely, falling back", e)
+            try {
+                startForeground(notificationId, createNotification())
+            } catch (ex: Exception) {
+                Log.e("NovaBgService", "Critical failure starting foreground service", ex)
+            }
+        }
+
         initRecognizer()
-        startListeningLoop()
+        if (!isAppInForeground) {
+            startListeningLoop()
+        }
     }
 
     private fun createNotificationChannel() {
@@ -69,6 +105,7 @@ class NovaBackgroundService : Service() {
                 setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
                         isListening = true
+                        silenceSpeechBeep(false)
                     }
 
                     override fun onBeginningOfSpeech() {
@@ -124,25 +161,27 @@ class NovaBackgroundService : Service() {
     private fun silenceSpeechBeep(mute: Boolean) {
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
         try {
+            val systemStream = AudioManager.STREAM_SYSTEM
+            val notificationStream = AudioManager.STREAM_NOTIFICATION
             if (mute) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0)
-                    audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_MUTE, 0)
+                    audioManager.adjustStreamVolume(systemStream, AudioManager.ADJUST_MUTE, 0)
+                    audioManager.adjustStreamVolume(notificationStream, AudioManager.ADJUST_MUTE, 0)
                 } else {
                     @Suppress("DEPRECATION")
-                    audioManager.setStreamMute(AudioManager.STREAM_SYSTEM, true)
+                    audioManager.setStreamMute(systemStream, true)
                     @Suppress("DEPRECATION")
-                    audioManager.setStreamMute(AudioManager.STREAM_NOTIFICATION, true)
+                    audioManager.setStreamMute(notificationStream, true)
                 }
             } else {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0)
-                    audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0)
+                    audioManager.adjustStreamVolume(systemStream, AudioManager.ADJUST_UNMUTE, 0)
+                    audioManager.adjustStreamVolume(notificationStream, AudioManager.ADJUST_UNMUTE, 0)
                 } else {
                     @Suppress("DEPRECATION")
-                    audioManager.setStreamMute(AudioManager.STREAM_SYSTEM, false)
+                    audioManager.setStreamMute(systemStream, false)
                     @Suppress("DEPRECATION")
-                    audioManager.setStreamMute(AudioManager.STREAM_NOTIFICATION, false)
+                    audioManager.setStreamMute(notificationStream, false)
                 }
             }
         } catch (e: Exception) {
@@ -150,9 +189,30 @@ class NovaBackgroundService : Service() {
         }
     }
 
-    private fun startListeningLoop() {
-        if (speechRecognizer == null) return
+    fun stopListeningImmediate() {
         try {
+            speechRecognizer?.cancel()
+            isListening = false
+            silenceSpeechBeep(false)
+            Log.d("NovaBgService", "Background listener paused because app is in foreground")
+        } catch (e: Exception) {
+            Log.e("NovaBgService", "Error pausing background listener", e)
+        }
+    }
+
+    private fun startListeningLoop() {
+        if (isAppInForeground) {
+            Log.d("NovaBgService", "Skipping startListeningLoop because App is in Foreground")
+            return
+        }
+        if (speechRecognizer == null) return
+        val hasMic = androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!hasMic) {
+            Log.d("NovaBgService", "Skipping startListeningLoop because Mic permission is not granted")
+            return
+        }
+        try {
+            silenceSpeechBeep(true)
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "bn-BD")
@@ -164,16 +224,21 @@ class NovaBackgroundService : Service() {
             isListening = true
         } catch (e: Exception) {
             Log.e("NovaBgService", "Failed starting bg speech listener", e)
+            silenceSpeechBeep(false)
             restartListeningDeferred()
         }
     }
 
     private fun restartListeningDeferred() {
+        if (isAppInForeground) {
+            Log.d("NovaBgService", "Skipping restartListeningDeferred because App is in Foreground")
+            return
+        }
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            if (!isListening) {
+            if (!isListening && !isAppInForeground) {
                 startListeningLoop()
             }
-        }, 1200)
+        }, 1500)
     }
 
     private fun wakeUpAndLaunchApp() {
@@ -200,6 +265,9 @@ class NovaBackgroundService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        if (instance == this) {
+            instance = null
+        }
         speechRecognizer?.destroy()
         Log.d("NovaBgService", "Background listener service destroyed")
     }

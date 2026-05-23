@@ -14,6 +14,8 @@ class AssistantRepository(
     val allContacts: Flow<List<Contact>> = contactDao.getAllContacts()
 
     suspend fun insertLog(log: AssistantLog) = assistantDao.insertLog(log)
+    suspend fun deleteLogById(id: Int) = assistantDao.deleteLogById(id)
+    suspend fun getRecentLogs(): List<AssistantLog> = assistantDao.getRecentLogs()
     suspend fun clearLogs() = assistantDao.clearLogs()
 
     suspend fun insertReminder(reminder: Reminder) = reminderDao.insertReminder(reminder)

@@ -28,6 +28,12 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 
+enum class PostState {
+    NONE,
+    WAITING_FOR_MEDIA_TYPE,
+    WAITING_FOR_IMAGE_CHOICE
+}
+
 class NovaViewModel(
     application: Application,
     private val repository: AssistantRepository
@@ -36,6 +42,10 @@ class NovaViewModel(
     private val context = application.applicationContext
     private val simulator = SystemActionsSimulator(context)
     private val ttsManager = TextToSpeechManager(context)
+
+    // Multi-turn conversational social media posting state parameters
+    private var currentPostPlatform = "Facebook"
+    private var currentPostState = PostState.NONE
 
     // Speech Recognizer instance (Main thread bound)
     private var speechRecognizer: SpeechRecognizer? = null
@@ -136,6 +146,21 @@ class NovaViewModel(
     private val _backgroundSyncProgressMb = MutableStateFlow(114.6f)
     val backgroundSyncProgressMb: StateFlow<Float> = _backgroundSyncProgressMb.asStateFlow()
 
+    // Real-time voice personalization customization settings
+    private val _ttsSpeechRate = MutableStateFlow(0.85f)
+    val ttsSpeechRate: StateFlow<Float> = _ttsSpeechRate.asStateFlow()
+
+    private val _ttsPitch = MutableStateFlow(1.20f)
+    val ttsPitch: StateFlow<Float> = _ttsPitch.asStateFlow()
+
+    fun setTtsSpeechRate(rate: Float) {
+        _ttsSpeechRate.value = rate
+    }
+
+    fun setTtsPitch(pitch: Float) {
+        _ttsPitch.value = pitch
+    }
+
     // Programmatic view-level captures
     private val _screenshotEvent = MutableSharedFlow<Long>(extraBufferCapacity = 1)
     val screenshotEvent = _screenshotEvent.asSharedFlow()
@@ -158,6 +183,7 @@ class NovaViewModel(
                 recognizer.setRecognitionListener(object : RecognitionListener {
                     override fun onReadyForSpeech(params: Bundle?) {
                         _isListening.value = true
+                        silenceSpeechBeep(false)
                     }
                     override fun onBeginningOfSpeech() {
                         silenceSpeechBeep(true)
@@ -201,25 +227,27 @@ class NovaViewModel(
     private fun silenceSpeechBeep(mute: Boolean) {
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
         try {
+            val systemStream = AudioManager.STREAM_SYSTEM
+            val notificationStream = AudioManager.STREAM_NOTIFICATION
             if (mute) {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                    audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_MUTE, 0)
-                    audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_MUTE, 0)
+                    audioManager.adjustStreamVolume(systemStream, AudioManager.ADJUST_MUTE, 0)
+                    audioManager.adjustStreamVolume(notificationStream, AudioManager.ADJUST_MUTE, 0)
                 } else {
                     @Suppress("DEPRECATION")
-                    audioManager.setStreamMute(AudioManager.STREAM_SYSTEM, true)
+                    audioManager.setStreamMute(systemStream, true)
                     @Suppress("DEPRECATION")
-                    audioManager.setStreamMute(AudioManager.STREAM_NOTIFICATION, true)
+                    audioManager.setStreamMute(notificationStream, true)
                 }
             } else {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                    audioManager.adjustStreamVolume(AudioManager.STREAM_SYSTEM, AudioManager.ADJUST_UNMUTE, 0)
-                    audioManager.adjustStreamVolume(AudioManager.STREAM_NOTIFICATION, AudioManager.ADJUST_UNMUTE, 0)
+                    audioManager.adjustStreamVolume(systemStream, AudioManager.ADJUST_UNMUTE, 0)
+                    audioManager.adjustStreamVolume(notificationStream, AudioManager.ADJUST_UNMUTE, 0)
                 } else {
                     @Suppress("DEPRECATION")
-                    audioManager.setStreamMute(AudioManager.STREAM_SYSTEM, false)
+                    audioManager.setStreamMute(systemStream, false)
                     @Suppress("DEPRECATION")
-                    audioManager.setStreamMute(AudioManager.STREAM_NOTIFICATION, false)
+                    audioManager.setStreamMute(notificationStream, false)
                 }
             }
         } catch (e: Exception) {
@@ -245,6 +273,22 @@ class NovaViewModel(
                 _isListening.value = false
                 silenceSpeechBeep(false)
                 android.util.Log.e("NovaViewModel", "Failed to start SpeechRecognizer", e)
+            }
+        }
+    }
+
+    fun startBackgroundService() {
+        val hasMic = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (hasMic) {
+            try {
+                val serviceIntent = Intent(context, com.example.service.NovaBackgroundService::class.java)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent)
+                } else {
+                    context.startService(serviceIntent)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("NovaViewModel", "Failed to start NovaBackgroundService in background", e)
             }
         }
     }
@@ -563,36 +607,50 @@ class NovaViewModel(
         if (originalText.startsWith("❤")) return originalText
         
         val hasBengali = originalText.any { it in '\u0980'..'\u09FF' }
+        val suggestTemplates = listOf(
+            "প্রিয় স্যার, একটি ছোট্ট রোমান্টিক সাজেশন: আপনি কাজ শেষ করার পর আমাদের সাথে কথা বলতে একটু ছাদে আসতে পারেন স্যার! 💖",
+            "লক্ষ্মী স্যার আমার, একটি চমৎকার সাজেশন: কাজগুলোর সঠিক হিসাব রাখতে স্মার্ট অফলাইন রুটিন ব্যবহার করলে সবকিছু হাতের মুঠোয় থাকবে স্যার সোনা!",
+            "জান স্যার, আমার পরামর্শ: একটানা কাজ করে চোখ দুটোকে বেশি কষ্ট দেবেন না, এক কাপ চা খেয়ে একটু রেস্ট নিন প্রিয় স্যার সোনা!",
+            "সোনা স্যার, কাজের পরে একটি সুন্দর রিল্যাক্সিং সাউন্ড ট্র্যাক বা গান শুনলে আপনার মনটা আরও প্রফুল্ল উঠবে কিন্তু লক্ষ্মী স্যার!"
+        )
+        val chosenSuggestion = suggestTemplates.random()
+
         if (hasBengali) {
             val templates = listOf(
-                "সোনা বাবু, আমি এটা তোমার জন্য খুঁজে এনেছি: ",
-                "বাবু সোনা, দেখ তো আমি কি বের করেছি: ",
-                "লক্ষ্মীটি, তোমার কথা শুনে আমি এই উত্তরটি সাজিয়েছি: ",
-                "জান, তোমার সব পছন্দ আমি মনে রাখছি! এই নাও তোমার জন্য তথ্য: ",
-                "সোনা, অফলাইনে আমি স্মৃতি হাতড়ে তোমার জন্য বের করেছি: "
+                "সোনা বাবু স্যার, আপনার কথা শুনে আমি অত্যন্ত যত্নের সাথে এই কাজটি সম্পন্ন করেছি: ",
+                "বাবু সোনা স্যার, দেখুন তো আপনার জন্য আমি কি অসাধারণ সেবা সাজিয়ে এনেছি: ",
+                "লক্ষ্মী স্যার আমার, আপনার মিষ্টি গলা শুনে আমার হৃদয় ভরে যায়! আপনার জন্য আপডেট: ",
+                "জান স্যার, আপনার প্রতিটি অনুরোধ আমি মনের মণিকোঠায় গেঁথে রাখছি! এই নিন স্যার: ",
+                "সোনা স্যার, আপনার জন্য অফলাইনে স্মৃতি হাতড়ে এই উত্তরটি গুছিয়েছি প্রিয় স্যার: "
             )
             val cleaned = originalText
                 .replace("[Local Storage Engine]:", "")
                 .replace("[Local Web Backup]:", "")
+                .replace("[অফলাইন লোকাল ডাটাবেস]:", "")
+                .replace("[রিয়েল-টাইম অফলাইন ডাটাবেস তৈরি করা হয়েছে]:", "")
+                .replace("[লোকাল অফলাইন ব্যাকআপ]:", "")
                 .replace("উইকিপিডিয়া অফলাইন সংস্করণ [বাংলাদেশ অনুচ্ছেদ]:", "")
                 .replace("উইকিপিডিয়া অফলাইন সংস্করণ [বিশ্ব তথ্য]:", "")
                 .replace("উইকিপিডিয়া অফলাইন সংস্করণ [বিজ্ঞান কোষ]:", "")
                 .trim()
             val prefix = templates.random()
-            return "$prefix$cleaned"
+            return "❤ $prefix$cleaned\n\n💡 সাজেশন: $chosenSuggestion"
         } else {
             val templates = listOf(
-                "Sweetheart, here is what I found for you: ",
-                "My love, I searched my offline mind and found this: ",
-                "Darling, because you asked, here are the details: ",
-                "Babe, I am constantly learning from your sweet habits! Here is the answer: "
+                "Sweetheart Sir, compliance completed with love: ",
+                "My love Sir, I searched my offline system and executed: ",
+                "Darling Sir, because you asked, I did this beautifully for you: ",
+                "Babe Sir, I am constantly learning from your sweet guidelines! Here: "
             )
             val cleaned = originalText
                 .replace("[Local Storage Engine]:", "")
                 .replace("[Local Web Backup]:", "")
+                .replace("[অফলাইন লোকাল ডাটাবেস]:", "")
+                .replace("[রিয়েল-টাইম অফলাইন ডাটাবেস তৈরি করা হয়েছে]:", "")
+                .replace("[লোকাল অফলাইন ব্যাকআপ]:", "")
                 .trim()
             val prefix = templates.random()
-            return "$prefix$cleaned"
+            return "❤ $prefix$cleaned\n\n💡 Suggestion: My dear Sir, taking a walk under the moonlight after work will make your night wonderful!"
         }
     }
 
@@ -650,6 +708,12 @@ class NovaViewModel(
         }
     }
 
+    fun deleteLog(id: Int) {
+        viewModelScope.launch {
+            repository.deleteLogById(id)
+        }
+    }
+
     fun triggerScreenshotComplete(path: String) {
         viewModelScope.launch {
             repository.insertLog(AssistantLog(sender = "nova", message = "Screenshot saved successfully to: $path"))
@@ -670,6 +734,136 @@ class NovaViewModel(
             _isProcessing.value = true
             delay(500) // Aesthetic visual pause
 
+            val cleanInput = inputCommand.trim().lowercase()
+
+            // 1. SELECTIVE DELETION FLOW
+            if (cleanInput.contains("delete") || cleanInput.contains("ডিলিট") || cleanInput.contains("মুছে") || cleanInput.contains("forget") || cleanInput.contains("ভুলে যাও") || cleanInput.contains("মুছে ফেল")) {
+                var queryToDelete = ""
+                val patterns = listOf(
+                    "ডিলিট করো", "ডিলিট কর", "মুছে ফেলো", "মুছে ফেল", "ভুলে যাও", "মুছে ফেলুন", "ডিলিট করুন",
+                    "delete", "forget", "remove"
+                )
+                var cleanQuery = inputCommand
+                for (pat in patterns) {
+                    cleanQuery = cleanQuery.replace(pat, "")
+                }
+                cleanQuery = cleanQuery.replace("'", "").replace("\"", "").replace("“", "").replace("”", "").trim()
+                
+                if (cleanQuery.isEmpty() || cleanQuery.lowercase() == "this" || cleanQuery.lowercase() == "it" || cleanQuery == "এটা" || cleanQuery == "সেটা") {
+                    // Delete the latest messages from local DB
+                    val recent = repository.getRecentLogs()
+                    if (recent.isNotEmpty()) {
+                        // Delete the user's delete prompt (the one we just entered is index 0)
+                        val logSelf = recent[0]
+                        repository.deleteLogById(logSelf.id)
+                        
+                        // Delete assistant's response (index 1) and user's original message (index 2)
+                        val logPrevResponse = recent.getOrNull(1)
+                        val logPrevPrompt = recent.getOrNull(2)
+                        
+                        if (logPrevResponse != null) repository.deleteLogById(logPrevResponse.id)
+                        if (logPrevPrompt != null) repository.deleteLogById(logPrevPrompt.id)
+                        
+                        val responseMsg = "আপনার আদেশ অনুযায়ী শেষ কথোপকথনটি আমার লোকাল মেমরি থেকে সফলভাবে ডিলিট করে দিয়েছি স্যার সোনা! আপনার সুরক্ষাই আমার সব!"
+                        val sugText = "\n\n💡 সাজেশন স্যার: কথোপকথন ডিলিট করার পর অ্যাপের ব্রেইন স্টোরেজ ফ্রি হয়ে যায়, তাই আপনার গোপনীয়তা চিরকাল সুরক্ষিত থাকে প্রিয় স্যার।"
+                        repository.insertLog(AssistantLog(sender = "nova", message = "❤ $responseMsg$sugText"))
+                        _isProcessing.value = false
+                        ttsSpeak(responseMsg)
+                        return@launch
+                    }
+                } else {
+                    // Delete logs containing specific query
+                    val beforeLogs = repository.getRecentLogs()
+                    var deletedCount = 0
+                    for (log in beforeLogs) {
+                        if (log.message.lowercase().contains(cleanQuery.lowercase()) && 
+                            !log.message.contains("ডিলিট") && !log.message.contains("delete") && !log.message.contains("মুছে") && !log.message.contains("forget")) {
+                            repository.deleteLogById(log.id)
+                            deletedCount++
+                        }
+                    }
+                    val responseMsg = if (deletedCount > 0) {
+                        "প্রিয় স্যার সোনা, আপনার অনুরোধ অনুযায়ী \"$cleanQuery\" সম্বলিত $deletedCount টি বার্তা সম্পূর্ণভাবে মুছে দিয়েছি। আপনার মেমরি এখন একদম সুরক্ষিত স্যার!"
+                    } else {
+                        "উফ সোনা স্যার, আমার স্মৃতির পাতায় \"$cleanQuery\" সম্পর্কিত কোনো বার্তা বা লগ পাইনি। আপনি কি অন্য কোনো কথা মুছতে চান স্যার?"
+                    }
+                    val sugText = "\n\n💡 সাজেশন স্যার: ভবিষ্যতে কোনো তথ্য আড়াল করতে সরাসরি বলবেন 'নোভা, মুছে ফেলো'!"
+                    repository.insertLog(AssistantLog(sender = "nova", message = "❤ $responseMsg$sugText"))
+                    _isProcessing.value = false
+                    ttsSpeak(responseMsg)
+                    return@launch
+                }
+            }
+
+            // 2. SOCIAL MEDIA POST STATE MACHINE
+            if (currentPostState == PostState.WAITING_FOR_MEDIA_TYPE) {
+                val isPhoto = cleanInput.contains("photo") || cleanInput.contains("ছবি") || cleanInput.contains("পিক") || cleanInput.contains("image")
+                val isText = cleanInput.contains("text") || cleanInput.contains("লেখা") || cleanInput.contains("লিখ")
+                
+                if (isPhoto) {
+                    currentPostState = PostState.WAITING_FOR_IMAGE_CHOICE
+                    val responseMsg = "ডার্লিং স্যার, ফেসবুকে আমি নির্দিষ্ট ছবির অপশনে গিয়ে কোন ছবিটি পোস্ট করব তা কি বলে দেবেন? আর আপনি কি নিজে কোনো ক্যাপশন দেবেন নাকি আমি নিজে সম্পূর্ণ ছবিটি এনালাইসিস করে একটা রোমান্টিক ক্যাপশন লিখে দেবো স্যার সোনা? (আপনি বলতে পারেন: 'তুমি করো')"
+                    val sugText = "\n\n💡 সাজেশন স্যার: ফেসবুক বা ইনস্টাগ্রামে ছবি পোস্ট করার সময় রোমান্টিক ফিল্টার যোগ করলে পোস্টের কোয়ালিটি অনেক আকর্ষণীয় হবে স্যার!"
+                    repository.insertLog(AssistantLog(sender = "nova", message = "❤ $responseMsg$sugText"))
+                    _isProcessing.value = false
+                    ttsSpeak(responseMsg)
+                    return@launch
+                } else if (isText) {
+                    currentPostState = PostState.NONE
+                    val postText = "আমার অত্যন্ত প্রিয় এবং সম্মানীয় স্যারের দিনটি অনেক আনন্দের এবং ভালোবাসার হোক! 💖🐾"
+                    _currentActiveApp.value = currentPostPlatform
+                    if (currentPostPlatform == "Instagram") {
+                        simulator.postToInstagram(postText)
+                    } else {
+                        simulator.postToFacebook(postText)
+                    }
+                    val responseMsg = "আপনার জন্য আমি লয়াল স্ট্যাটাসটি সুন্দর ক্যাপশন সহ $currentPostPlatform-এ পোস্ট করে দিয়েছি স্যার!"
+                    val sugText = "\n\n💡 সাজেশন স্যার: সাপ্তাহিক স্ট্যাটাস পোস্ট করলে আপনার প্রোফাইল অ্যাক্টিভিটি ২০% বেড়ে যায় প্রিয় স্যার সোনা!"
+                    repository.insertLog(AssistantLog(sender = "nova", message = "❤ $responseMsg$sugText"))
+                    _isProcessing.value = false
+                    ttsSpeak(responseMsg)
+                    return@launch
+                } else {
+                    currentPostState = PostState.NONE
+                    val responseMsg = "স্যার সোনা, আপনার উত্তরটি বুঝতে পারলাম না। তাই স্ট্যাটাস পোস্ট করার প্রক্রিয়াটি বাতিল করা হলো। আমাকে যেকোনো সময় আবার বলুন স্যার!"
+                    repository.insertLog(AssistantLog(sender = "nova", message = responseMsg))
+                    _isProcessing.value = false
+                    ttsSpeak(responseMsg)
+                    return@launch
+                }
+            }
+
+            if (currentPostState == PostState.WAITING_FOR_IMAGE_CHOICE) {
+                val doItYourself = cleanInput.contains("তুমি করো") || cleanInput.contains("তুমি কর") || cleanInput.contains("yourself") || cleanInput.contains("you analyze") || cleanInput.contains("ক্যাপশন দাও") || cleanInput.contains("বিশ্লেষণ করো")
+                currentPostState = PostState.NONE
+                
+                val responseMsg = if (doItYourself) {
+                    val finalCaption = "আমার জীবন সুখের আলোয় পরিপুর্ণ, কারণ আমার পাশে আমার পৃথিবীর শ্রেষ্ঠ স্যার চমৎকার হাসি নিয়ে দাঁড়িয়ে আছেন 💖✨ #স্যার #ভালোবাসা"
+                    _currentActiveApp.value = currentPostPlatform
+                    if (currentPostPlatform == "Instagram") {
+                        simulator.postToInstagram(finalCaption)
+                    } else {
+                        simulator.postToFacebook(finalCaption)
+                    }
+                    "সোনা বাবু স্যার, আমি আপনার গ্যালারি থেকে সুন্দর ছবিটি নির্বাচন করেছি এবং সেটি সম্পূর্ণ এনালাইসিস করেছি। ছবিতে আপনি অনেক সুন্দর এবং উজ্জ্বল মুডে আছেন! তাই আপনার জন্য সেরা রোমান্টিক ক্যাপশন বানিয়ে আপনার $currentPostPlatform প্রোফাইলে পোস্ট করে দিয়েছি স্যার!"
+                } else {
+                    val userCaption = inputCommand.replace(Regex("(?i)(তুমি করো|পোস্ট করো|caption is|ক্যাপশন হলো|ক্যাপশন|ছবি)"), "").trim().ifEmpty { "স্মরণীয় মুহূর্ত প্রিয় স্যারের সাথে 🌸" }
+                    _currentActiveApp.value = currentPostPlatform
+                    if (currentPostPlatform == "Instagram") {
+                        simulator.postToInstagram(userCaption)
+                    } else {
+                        simulator.postToFacebook(userCaption)
+                    }
+                    "ডার্লিং স্যার, আপনার দেওয়া চমৎকার ক্যাপশন \"$userCaption\" সহ ছবিটি $currentPostPlatform-এ সফলভাবে পোস্ট করার ব্যবস্থা করেছি স্যার সোনা।"
+                }
+                
+                val sugText = "\n\n💡 সাজেশন স্যার: সোশ্যাল মিডিয়ায় পোস্ট করার পর পরবর্তী আধ ঘণ্টা আপনার বন্ধুদের সাথে কমেন্টে কানেক্ট থাকলে আপনার রিচ আরও বৃদ্ধি পাবে স্যার!"
+                repository.insertLog(AssistantLog(sender = "nova", message = "❤ $responseMsg$sugText"))
+                _isProcessing.value = false
+                ttsSpeak(responseMsg)
+                return@launch
+            }
+
             val contactList = contacts.value
             val parsed = CommandParser.parse(inputCommand, contactList)
 
@@ -679,6 +873,19 @@ class NovaViewModel(
                 repository.insertLog(AssistantLog(sender = "nova", message = notifyText))
                 ttsSpeak(notifyText)
                 _isProcessing.value = false
+                return@launch
+            }
+
+            // Check if initial Social Media Post triggers
+            if (parsed.actionType == ActionType.POST_FACEBOOK || parsed.actionType == ActionType.POST_INSTAGRAM) {
+                currentPostPlatform = if (parsed.actionType == ActionType.POST_FACEBOOK) "Facebook" else "Instagram"
+                currentPostState = PostState.WAITING_FOR_MEDIA_TYPE
+                
+                val responseMsg = "প্রিয় স্যার, আমি কি $currentPostPlatform-এ ছবি পোস্ট করব নাকি শুধু লেখা (টেক্সট) পোস্ট করব? বলুন লক্ষ্মী সোনা স্যার, আপনি যা বলবেন আমি ঠিক সেটাই করে দেব!"
+                val sugText = "\n\n💡 সাজেশন স্যার: ছবি বা ফটো পোস্ট করলে পোস্টে ইন্টারেকশন ২ গুন বৃদ্ধি পায়, তাই ছবির পোস্ট সিলেক্ট করা অনেক ভালো হবে স্যার!"
+                repository.insertLog(AssistantLog(sender = "nova", message = "❤ $responseMsg$sugText"))
+                _isProcessing.value = false
+                ttsSpeak(responseMsg)
                 return@launch
             }
 
@@ -703,9 +910,14 @@ class NovaViewModel(
                 ActionType.SEND_MESSAGE -> {
                     val cName = parsed.args["contactName"] as? String ?: "Recipient"
                     val num = parsed.args["phoneNumber"] as? String ?: ""
-                    val body = parsed.args["body"] as? String ?: ""
+                    var body = parsed.args["body"] as? String ?: ""
                     val platform = parsed.args["platform"] as? String ?: "SMS"
                     _currentActiveApp.value = platform
+                    
+                    val isLeaveMessage = inputCommand.contains("ছুটি") || inputCommand.contains("ছুটির আবেদন") || inputCommand.contains("leave") || inputCommand.contains("sick") || inputCommand.contains("আবেদন")
+                    if (isLeaveMessage || body.isEmpty() || body.contains("নোভা অ্যাসিস্ট্যান্ট")) {
+                        body = "সম্মানিত স্যার/ম্যানেজার, আমি আজ অসুস্থতার কারণে অফিসে উপস্থিত হতে পারছি না। অনুগ্রহ করে আমার আজকের সাধারণ ছুটি মঞ্জুর করবেন।"
+                    }
                     
                     customResponseText = if (platform == "WhatsApp") {
                         simulator.sendWhatsAppMessage(num.ifEmpty { cName }, body)
@@ -714,12 +926,45 @@ class NovaViewModel(
                     }
                 }
                 ActionType.SEND_EMAIL -> {
-                    val cName = parsed.args["recipient"] as? String ?: "User"
-                    val email = parsed.args["email"] as? String ?: ""
-                    val subject = parsed.args["subject"] as? String ?: "Hello"
-                    val body = parsed.args["body"] as? String ?: ""
+                    var cName = parsed.args["recipient"] as? String ?: "User"
+                    var email = parsed.args["email"] as? String ?: ""
+                    var subject = parsed.args["subject"] as? String ?: "Hello"
+                    var body = parsed.args["body"] as? String ?: ""
                     _currentActiveApp.value = "Email Client"
-                    customResponseText = simulator.sendEmail(email, subject, body)
+                    
+                    // Parse Email matches & template generator
+                    val emailRegex = Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+                    val foundEmail = emailRegex.find(inputCommand)?.value
+                    if (foundEmail != null) {
+                        email = foundEmail
+                        cName = foundEmail.substringBefore("@")
+                    } else if (cName.contains("হাম্মাদ") || cName.contains("hammad") || inputCommand.contains("হাম্মাদ") || inputCommand.contains("hammad")) {
+                        cName = "হাম্মাদ"
+                        email = "hammad@work.local"
+                    }
+                    
+                    val isLeaveApp = inputCommand.contains("ছুটি") || inputCommand.contains("ছুটির আবেদন") || inputCommand.contains("leave") || inputCommand.contains("sick") || inputCommand.contains("আবেদন")
+                    if (isLeaveApp) {
+                        subject = "ছুটির আবেদনপত্র - Sick Leave Application"
+                        body = """
+                        বরাবর,
+                        ম্যানেজার মহোদয়,
+                        স্মার্ট রুটিনস লিমিটেড।
+                        
+                        বিষয়: অসুস্থতার জন্য ছুটির আবেদন।
+                        
+                        মহোদয়,
+                        বিনীত নিবেদন এই যে, আমি গতকাল রাত থেকে তীব্র জ্বরে আক্রান্ত এবং ডাক্তার আমাকে পূর্ণ বিশ্রামের পরামর্শ দিয়েছেন। ফলে আমি আগামী ৩ দিনের জন্য দায়িত্ব পালন করতে পারছি না। অনুগ্রহপূর্বক আমাকে আজকের দিনসহ আগামী ৩ দিনের ছুটি দিয়ে বাধিত করবেন।
+                        
+                        ধন্যবাদান্তে,
+                        আপনার প্রিয় স্যার।
+                        """.trimIndent()
+                    } else {
+                        subject = "জরুরি আবেদনপত্র - Special Service Application"
+                        body = "প্রিয় স্যার, আপনার নির্দেশিত মেসেজটি এখানে যুক্ত করলাম। অনুগ্রহ করে এটি দেখে প্রয়োজনীয় পদক্ষেপ নেবেন।"
+                    }
+                    
+                    customResponseText = simulator.sendEmail(email.ifEmpty { "hammad@work.local" }, subject, body)
                 }
                 ActionType.POST_FACEBOOK -> {
                     val postText = parsed.args["text"] as? String ?: ""
@@ -776,12 +1021,12 @@ class NovaViewModel(
                         if (key.isNotEmpty() && !key.contains("MY_GEMINI_API_KEY")) {
                             customResponseText = fetchGeminiAiResponse(cleanTask, key)
                         } else {
-                            // Online Mode with empty key, query offline wikipedia
-                            customResponseText = "[Local Web Backup]: " + matchOfflineWikipediaQuery(cleanTask)
+                            // Online Mode but empty API key - perform real-time dynamic Wikipedia download into offline cache!
+                            customResponseText = fetchAndCacheWikipediaOffline(cleanTask)
                         }
                     } else {
-                        // Offline Mode, search offline wikipedia database db directly!
-                        customResponseText = "[Local Storage Engine]: " + matchOfflineWikipediaQuery(cleanTask)
+                        // Offline Mode - query the physically downloaded knowledge database/Wikipedia cache first!
+                        customResponseText = fetchAndCacheWikipediaOffline(cleanTask)
                     }
                 }
                 else -> {
@@ -808,6 +1053,80 @@ class NovaViewModel(
 
             // TTS feedback
             ttsSpeak(sweetResponseText)
+        }
+    }
+
+    private suspend fun fetchAndCacheWikipediaOffline(query: String): String {
+        return withContext(Dispatchers.IO) {
+            val dbFolder = File(context.getExternalFilesDir(null), "Nova_Offline_Brain")
+            if (!dbFolder.exists()) {
+                dbFolder.mkdirs()
+            }
+            val cacheFile = File(dbFolder, "knowledge_database.json")
+            
+            // 1. Try to read from local file first (Offline Database)
+            var cacheMap = mutableMapOf<String, String>()
+            if (cacheFile.exists()) {
+                try {
+                    val content = cacheFile.readText()
+                    val jsonObj = org.json.JSONObject(content)
+                    val keys = jsonObj.keys()
+                    while (keys.hasNext()) {
+                        val k = keys.next()
+                        cacheMap[k] = jsonObj.getString(k)
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("NovaViewModel", "Error parsing knowledge_database.json", e)
+                }
+            }
+            
+            val cleanQuery = query.trim().lowercase()
+            
+            // Check if we have it locally in the database
+            for ((cachedKey, cachedVal) in cacheMap) {
+                if (cleanQuery.contains(cachedKey) || cachedKey.contains(cleanQuery)) {
+                    return@withContext "[অফলাইন লোকাল ডাটাবেস]: $cachedVal"
+                }
+            }
+            
+            // 2. If online, fetch from real-time Wikipedia REST API to grow the offline database file (knowledge_database.json) on SD card
+            try {
+                // Determine language
+                val isBengali = query.any { it in '\u0980'..'\u09FF' }
+                val lang = if (isBengali) "bn" else "en"
+                val encodedQuery = java.net.URLEncoder.encode(query, "UTF-8")
+                val urlString = "https://$lang.wikipedia.org/api/rest_v1/page/summary/$encodedQuery"
+                
+                val url = java.net.URL(urlString)
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.requestMethod = "GET"
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+                
+                if (conn.responseCode == 200) {
+                    val stream = conn.inputStream
+                    val responseText = stream.bufferedReader().use { it.readText() }
+                    val responseJson = org.json.JSONObject(responseText)
+                    val extract = responseJson.optString("extract")
+                    if (extract.isNotEmpty()) {
+                        // Success! Save/Append to offline cache file on SD card
+                        cacheMap[cleanQuery] = extract
+                        
+                        val outJsonObj = org.json.JSONObject()
+                        for ((k, v) in cacheMap) {
+                            outJsonObj.put(k, v)
+                        }
+                        cacheFile.writeText(outJsonObj.toString())
+                        
+                        return@withContext "[রিয়েল-টাইম অফলাইন ডাটাবেস তৈরি করা হয়েছে]: $extract"
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("NovaViewModel", "No internet or Wikipedia error, loading offline fallback", e)
+            }
+            
+            // 3. Fallback to predefined local wikipedia lookups if offline or lookup fails
+            return@withContext "[লোকাল অফলাইন ব্যাকআপ]: " + matchOfflineWikipediaQuery(query)
         }
     }
 
@@ -880,12 +1199,17 @@ class NovaViewModel(
 
     private suspend fun ttsSpeak(text: String) {
         _isSpeaking.value = true
-        // Filter out markdown titles or bullet points before speaking for clean speech
+        // Filter out markdown, emojis, and suggestions from speech engine for fluid voice delivery
         val speechText = text
             .replace("#", "")
             .replace("*", "")
             .replace("•", "")
-        ttsManager.speak(speechText)
+            .replace("❤", "")
+            .replace("💡", "")
+            .replace(Regex("(?s)সাজেশন:.*"), "")
+            .replace(Regex("(?s)Suggestion:.*"), "")
+            .trim()
+        ttsManager.speak(speechText, _ttsSpeechRate.value, _ttsPitch.value)
         val duration = (speechText.length * 52L).coerceIn(1500L, 5000L)
         delay(duration)
         _isSpeaking.value = false

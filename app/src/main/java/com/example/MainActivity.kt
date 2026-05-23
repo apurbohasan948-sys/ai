@@ -55,16 +55,25 @@ class MainActivity : ComponentActivity() {
         val viewModelFactory = NovaViewModelFactory(application, repository)
         val viewModel = ViewModelProvider(this, viewModelFactory)[NovaViewModel::class.java]
 
-        // Start Nova Background Phrase Listener Service
-        try {
-            val serviceIntent = Intent(this, com.example.service.NovaBackgroundService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(serviceIntent)
-            } else {
-                startService(serviceIntent)
+        // Set app state to foreground on startup pre-emptively
+        com.example.service.NovaBackgroundService.isAppInForeground = true
+
+        // Start Nova Background Phrase Listener Service only if recording permission is granted
+        val recordAudioPermission = android.Manifest.permission.RECORD_AUDIO
+        val hasMicPermission = androidx.core.content.ContextCompat.checkSelfPermission(this, recordAudioPermission) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (hasMicPermission) {
+            try {
+                val serviceIntent = Intent(this, com.example.service.NovaBackgroundService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(serviceIntent)
+                } else {
+                    startService(serviceIntent)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Failed starting NovaBackgroundService", e)
             }
-        } catch (e: Exception) {
-            android.util.Log.e("MainActivity", "Failed starting NovaBackgroundService", e)
+        } else {
+            android.util.Log.d("MainActivity", "Microphone permission not granted yet, skipping foreground service startup")
         }
 
         // Collect screenshot capture signals flowing from ViewModel
@@ -88,6 +97,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        com.example.service.NovaBackgroundService.isAppInForeground = true
+    }
+
+    override fun onPause() {
+        super.onPause()
+        com.example.service.NovaBackgroundService.isAppInForeground = false
     }
 
     private fun takeScreenshot(callback: (String) -> Unit) {

@@ -80,6 +80,8 @@ fun NovaDashboard(viewModel: NovaViewModel) {
     val storageLocation by viewModel.storageLocation.collectAsStateWithLifecycle()
     val userPermissionPhoneStorage by viewModel.userPermissionPhoneStorage.collectAsStateWithLifecycle()
     val allowedLimitGb by viewModel.allowedLimitGb.collectAsStateWithLifecycle()
+    val ttsSpeechRate by viewModel.ttsSpeechRate.collectAsStateWithLifecycle()
+    val ttsPitch by viewModel.ttsPitch.collectAsStateWithLifecycle()
 
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
@@ -560,6 +562,70 @@ fun NovaDashboard(viewModel: NovaViewModel) {
                                                     )
                                                 )
                                             }
+
+                                            Spacer(modifier = Modifier.height(12.dp))
+
+                                            Column {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(
+                                                        text = "ভয়েস পিচ (গলা চিকন/মোটা):",
+                                                        color = Color.White,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Text(
+                                                        text = String.format(Locale.US, "%.2f", ttsPitch),
+                                                        color = Color(0xFF00E676),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                                Slider(
+                                                    value = ttsPitch,
+                                                    onValueChange = { viewModel.setTtsPitch(it) },
+                                                    valueRange = 0.5f..1.8f,
+                                                    colors = SliderDefaults.colors(
+                                                        thumbColor = Color(0xFF00E676),
+                                                        activeTrackColor = Color(0xFF00E676),
+                                                        inactiveTrackColor = Color(0xFF241F2C)
+                                                    )
+                                                )
+                                            }
+
+                                            Spacer(modifier = Modifier.height(12.dp))
+
+                                            Column {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
+                                                    Text(
+                                                        text = "ভয়েস স্পীড (কথা বলার গতি):",
+                                                        color = Color.White,
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    Text(
+                                                        text = String.format(Locale.US, "%.2f", ttsSpeechRate),
+                                                        color = Color(0xFF29B6F6),
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                                Slider(
+                                                    value = ttsSpeechRate,
+                                                    onValueChange = { viewModel.setTtsSpeechRate(it) },
+                                                    valueRange = 0.5f..1.5f,
+                                                    colors = SliderDefaults.colors(
+                                                        thumbColor = Color(0xFF29B6F6),
+                                                        activeTrackColor = Color(0xFF29B6F6),
+                                                        inactiveTrackColor = Color(0xFF241F2C)
+                                                    )
+                                                )
+                                            }
                                         }
                                     }
 
@@ -747,7 +813,7 @@ fun NovaDashboard(viewModel: NovaViewModel) {
                                 verticalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 items(logs) { log ->
-                                    SpeechBubble(log)
+                                    SpeechBubble(log, onDelete = { viewModel.deleteLog(log.id) })
                                 }
                             }
                         }
@@ -862,6 +928,9 @@ fun InlinePermissionsPanel(viewModel: NovaViewModel, onDismiss: () -> Unit) {
         hasCall = results[Manifest.permission.CALL_PHONE] ?: hasCall
         hasSms = results[Manifest.permission.SEND_SMS] ?: hasSms
         viewModel.loadSystemContacts()
+        if (results[Manifest.permission.RECORD_AUDIO] == true) {
+            viewModel.startBackgroundService()
+        }
         Toast.makeText(context, "System permission states synchronized.", Toast.LENGTH_SHORT).show()
     }
 
@@ -1103,7 +1172,7 @@ fun NovaPulsingSphere(
 }
 
 @Composable
-fun SpeechBubble(log: AssistantLog) {
+fun SpeechBubble(log: AssistantLog, onDelete: () -> Unit) {
     val isUser = log.sender == "user"
     val bubbleColor = if (isUser) Color(0xFF1E1B29) else Color(0xFF2C151B) // Rosy pink bubble for girlfriend
     val textColor = if (isUser) Color.White else Color(0xFFFFEBEE) // Warm sweet text color for girlfriend
@@ -1248,12 +1317,25 @@ fun SpeechBubble(log: AssistantLog) {
                 }
             }
         }
-        Text(
-            text = formatTime(log.timestamp),
-            color = Color(0x3BFFFFFF),
-            fontSize = 9.sp,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-        )
+        ) {
+            Text(
+                text = formatTime(log.timestamp),
+                color = Color(0x3BFFFFFF),
+                fontSize = 9.sp
+            )
+            Icon(
+                imageVector = Icons.Default.Delete,
+                contentDescription = "Delete speech bubble",
+                tint = Color(0x28FFFFFF),
+                modifier = Modifier
+                    .size(12.dp)
+                    .clickable { onDelete() }
+            )
+        }
     }
 }
 

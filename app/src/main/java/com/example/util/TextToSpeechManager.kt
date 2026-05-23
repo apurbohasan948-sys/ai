@@ -86,7 +86,7 @@ class TextToSpeechManager(private val context: Context) {
         }
     }
 
-    fun speak(text: String) {
+    fun speak(text: String, speechRate: Float = 0.85f, pitch: Float = 1.25f) {
         try {
             initTtsIfNeeded()
             if (isInitialized && tts != null) {
@@ -99,8 +99,8 @@ class TextToSpeechManager(private val context: Context) {
                 }
                 
                 // Re-enforce optimal gentle reading metrics
-                tts?.setSpeechRate(0.85f) 
-                tts?.setPitch(1.25f)
+                tts?.setSpeechRate(speechRate) 
+                tts?.setPitch(pitch)
                 
                 // Clean speech format to remove tech/log tags
                 val cleanedText = text

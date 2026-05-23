@@ -14,6 +14,12 @@ interface AssistantDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLog(log: AssistantLog)
 
+    @Query("DELETE FROM assistant_logs WHERE id = :id")
+    suspend fun deleteLogById(id: Int)
+
+    @Query("SELECT * FROM assistant_logs ORDER BY timestamp DESC")
+    suspend fun getRecentLogs(): List<AssistantLog>
+
     @Query("DELETE FROM assistant_logs")
     suspend fun clearLogs()
 }
