@@ -95,7 +95,7 @@ fun NovaDashboard(viewModel: NovaViewModel) {
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Reminders") },
+                    icon = { Icon(Icons.Default.List, contentDescription = "Reminders") },
                     label = { Text("Reminders", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color(0xFF080808),

@@ -20,10 +20,18 @@ import com.example.viewmodel.NovaViewModelFactory
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Trap any uncaught exceptions to ensure we log what causes process deaths
+        val oldHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            android.util.Log.e("MainActivity", "Caught uncaught exception in thread: $thread", throwable)
+            oldHandler?.uncaughtException(thread, throwable)
+        }
+
         enableEdgeToEdge()
 
-        // Initialize Room Database using application lifecycle scope for background seeding
-        val db = AppDatabase.getDatabase(applicationContext, lifecycleScope)
+        // Initialize Room Database with dedicated background seeding
+        val db = AppDatabase.getDatabase(applicationContext)
         val repository = AssistantRepository(
             assistantDao = db.assistantDao(),
             reminderDao = db.reminderDao(),

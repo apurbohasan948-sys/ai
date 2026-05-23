@@ -8,6 +8,9 @@ interface AssistantDao {
     @Query("SELECT * FROM assistant_logs ORDER BY timestamp ASC")
     fun getAllLogs(): Flow<List<AssistantLog>>
 
+    @Query("SELECT COUNT(*) FROM assistant_logs")
+    suspend fun getCount(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLog(log: AssistantLog)
 
@@ -19,6 +22,9 @@ interface AssistantDao {
 interface ReminderDao {
     @Query("SELECT * FROM reminders ORDER BY timestamp DESC")
     fun getAllReminders(): Flow<List<Reminder>>
+
+    @Query("SELECT COUNT(*) FROM reminders")
+    suspend fun getCount(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReminder(reminder: Reminder)
@@ -35,6 +41,9 @@ interface RoutineDao {
     @Query("SELECT * FROM routines")
     fun getAllRoutines(): Flow<List<Routine>>
 
+    @Query("SELECT COUNT(*) FROM routines")
+    suspend fun getCount(): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRoutine(routine: Routine)
 
@@ -46,6 +55,9 @@ interface RoutineDao {
 interface ContactDao {
     @Query("SELECT * FROM contacts ORDER BY name ASC")
     fun getAllContacts(): Flow<List<Contact>>
+
+    @Query("SELECT COUNT(*) FROM contacts")
+    suspend fun getCount(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertContact(contact: Contact)

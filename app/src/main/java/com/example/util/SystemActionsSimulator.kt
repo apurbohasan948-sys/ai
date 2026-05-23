@@ -15,25 +15,29 @@ class SystemActionsSimulator(private val context: Context) {
     }
 
     fun openApp(packageName: String, appName: String): Pair<Boolean, String> {
-        val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-        return if (launchIntent != null) {
-            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(launchIntent)
-            true to "Successfully launched $appName."
-        } else {
-            // General implicit intent fallback for known services if package launcher is missing
-            val fallbackIntent = when (appName.lowercase()) {
-                "youtube" -> Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com")).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                "facebook" -> Intent(Intent.ACTION_VIEW, Uri.parse("https://www.facebook.com")).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                "whatsapp" -> Intent(Intent.ACTION_VIEW, Uri.parse("https://web.whatsapp.com")).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
-                else -> null
-            }
-            if (fallbackIntent != null) {
-                context.startActivity(fallbackIntent)
-                true to "Launching web edition of $appName on emulator..."
+        return try {
+            val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(launchIntent)
+                true to "Successfully launched $appName."
             } else {
-                false to "Could not direct-launch $appName. Simulating launch state internally."
+                // General implicit intent fallback for known services if package launcher is missing
+                val fallbackIntent = when (appName.lowercase()) {
+                    "youtube" -> Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com")).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                    "facebook" -> Intent(Intent.ACTION_VIEW, Uri.parse("https://www.facebook.com")).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                    "whatsapp" -> Intent(Intent.ACTION_VIEW, Uri.parse("https://web.whatsapp.com")).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                    else -> null
+                }
+                if (fallbackIntent != null) {
+                    context.startActivity(fallbackIntent)
+                    true to "Launching web edition of $appName on emulator..."
+                } else {
+                    false to "Could not direct-launch $appName. Simulating launch state internally."
+                }
             }
+        } catch (e: Throwable) {
+            false to "Could not launch $appName. Simulating launch state internally."
         }
     }
 
@@ -44,7 +48,7 @@ class SystemActionsSimulator(private val context: Context) {
             }
             context.startActivity(intent)
             "Opening Android system settings..."
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             "Opening Settings simulation active."
         }
     }
@@ -56,7 +60,7 @@ class SystemActionsSimulator(private val context: Context) {
             }
             context.startActivity(intent)
             "Initializing call dialer to $name ($phoneNumber)..."
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             "Simulating phone call to $name..."
         }
     }
@@ -70,7 +74,7 @@ class SystemActionsSimulator(private val context: Context) {
             }
             context.startActivity(intent)
             "Routing SMS dispatch for $name with body: \"$body\""
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             "Simulating SMS to $name: \"$body\""
         }
     }
@@ -83,7 +87,7 @@ class SystemActionsSimulator(private val context: Context) {
             val currentVol = manager.getStreamVolume(AudioManager.STREAM_MUSIC)
             val maxVol = manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
             "System volume adjusted ${if (increase) "up" else "down"} (Current: $currentVol/$maxVol)."
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             "System volume updated ${if (increase) "up" else "down"}."
         }
     }
@@ -97,7 +101,7 @@ class SystemActionsSimulator(private val context: Context) {
             }
             context.startActivity(intent)
             "WiFi standard toggle: ${if (turnOn) "ON" else "OFF"}. Opening WiFi panels."
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             "WiFi simulation updated to: ${if (turnOn) "ON" else "OFF"}"
         }
     }
@@ -109,7 +113,7 @@ class SystemActionsSimulator(private val context: Context) {
             }
             context.startActivity(intent)
             "Bluetooth standard toggle: ${if (turnOn) "ON" else "OFF"}. Launching Bluetooth preferences."
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             "Bluetooth state simulation updated to: ${if (turnOn) "ON" else "OFF"}"
         }
     }
@@ -123,7 +127,7 @@ class SystemActionsSimulator(private val context: Context) {
             }
             context.startActivity(intent)
             "Opening display settings to adjust screen brightness ${if (increase) "higher" else "lower"}."
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             "Simulated screen brightness ${if (increase) "increased" else "decreased"}."
         }
     }
