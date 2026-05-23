@@ -46,11 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.AssistantLog
-import com.example.data.Contact
-import com.example.data.Reminder
-import com.example.data.Routine
 import com.example.viewmodel.NovaViewModel
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -59,102 +55,6 @@ import java.util.Locale
 @Composable
 fun NovaDashboard(viewModel: NovaViewModel) {
     val context = LocalContext.current
-    var selectedTab by remember { mutableIntStateOf(0) }
-
-    // Minimalist Monochrome / Classic Obsidian & Sand-Alabaster palette
-    val backgroundGradient = Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF080808), // Obsidian black top
-            Color(0xFF0F0F0F)  // Slate-charcoal bottom
-        )
-    )
-
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        bottomBar = {
-            NavigationBar(
-                containerColor = Color(0xFF080808),
-                tonalElevation = 0.dp,
-                windowInsets = WindowInsets.navigationBars,
-                modifier = Modifier.border(BorderStroke(0.5.dp, Color(0xFF1F1F1F)))
-            ) {
-                NavigationBarItem(
-                    selected = selectedTab == 0,
-                    onClick = { selectedTab = 0 },
-                    icon = { Icon(Icons.Default.Mic, contentDescription = "Voice Assistant") },
-                    label = { Text("Assistant", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFF080808),
-                        selectedTextColor = Color(0xFFE6DFD5),
-                        indicatorColor = Color(0xFFE6DFD5),
-                        unselectedIconColor = Color(0xFF707070),
-                        unselectedTextColor = Color(0xFF707070)
-                    ),
-                    modifier = Modifier.testTag("tab_assistant")
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 1,
-                    onClick = { selectedTab = 1 },
-                    icon = { Icon(Icons.Default.List, contentDescription = "Reminders") },
-                    label = { Text("Reminders", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFF080808),
-                        selectedTextColor = Color(0xFFE6DFD5),
-                        indicatorColor = Color(0xFFE6DFD5),
-                        unselectedIconColor = Color(0xFF707070),
-                        unselectedTextColor = Color(0xFF707070)
-                    ),
-                    modifier = Modifier.testTag("tab_reminders")
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "Automation") },
-                    label = { Text("Automation", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFF080808),
-                        selectedTextColor = Color(0xFFE6DFD5),
-                        indicatorColor = Color(0xFFE6DFD5),
-                        unselectedIconColor = Color(0xFF707070),
-                        unselectedTextColor = Color(0xFF707070)
-                    ),
-                    modifier = Modifier.testTag("tab_automation")
-                )
-                NavigationBarItem(
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
-                    icon = { Icon(Icons.Default.Shield, contentDescription = "Permissions") },
-                    label = { Text("System", fontSize = 11.sp, fontWeight = FontWeight.Medium) },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFF080808),
-                        selectedTextColor = Color(0xFFE6DFD5),
-                        indicatorColor = Color(0xFFE6DFD5),
-                        unselectedIconColor = Color(0xFF707070),
-                        unselectedTextColor = Color(0xFF707070)
-                    ),
-                    modifier = Modifier.testTag("tab_system")
-                )
-            }
-        }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(backgroundGradient)
-                .padding(innerPadding)
-        ) {
-            when (selectedTab) {
-                0 -> AssistantTab(viewModel)
-                1 -> RemindersTab(viewModel)
-                2 -> AutomationContactsTab(viewModel)
-                3 -> SystemPermissionsTab(viewModel)
-            }
-        }
-    }
-}
-
-@Composable
-fun AssistantTab(viewModel: NovaViewModel) {
     val logs by viewModel.logs.collectAsStateWithLifecycle()
     val isListening by viewModel.isListening.collectAsStateWithLifecycle()
     val isProcessing by viewModel.isProcessing.collectAsStateWithLifecycle()
@@ -163,261 +63,517 @@ fun AssistantTab(viewModel: NovaViewModel) {
     val alwaysOnWake by viewModel.wakeWordAlwaysOn.collectAsStateWithLifecycle()
     val mode by viewModel.modelMode.collectAsStateWithLifecycle()
 
+    // Download/Provisioning status
+    val isDownloading by viewModel.isDownloadingOfflineData.collectAsStateWithLifecycle()
+    val downloadProgress by viewModel.downloadProgress.collectAsStateWithLifecycle()
+    val offlineDbSize by viewModel.offlineDataSizeMb.collectAsStateWithLifecycle()
+    val offlineDbExists by viewModel.offlineDataExists.collectAsStateWithLifecycle()
+
     val scope = rememberCoroutineScope()
     val listState = rememberLazyListState()
     var inputVal by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // Keyboard state detection for scrolling to remains
+    var showPermissionsPanel by remember { mutableStateOf(false) }
+
+    // Scroll to latest conversation bubbles automatically
     LaunchedEffect(logs.size) {
         if (logs.isNotEmpty()) {
             listState.animateScrollToItem(logs.size - 1)
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        // Upper Quick Stats
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "N  O  V  A",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFFE6DFD5),
-                    letterSpacing = 2.sp
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (mode == "Online Hybrid") Color(0xFFE6DFD5) else Color(0xFF444444)
-                            )
-                    )
-                    Spacer(modifier = Modifier.size(6.dp))
-                    Text(
-                        text = if (mode == "Online Hybrid") "Hybrid Engine" else "Local Engine",
-                        fontSize = 11.sp,
-                        color = Color(0xFF8E8E93)
-                    )
-                }
-            }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Clear state
-                IconButton(
-                    onClick = { viewModel.clearAllLogs() },
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color(0xFF121212), RoundedCornerShape(8.dp))
-                        .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
-                        .testTag("clear_logs_button")
-                ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Clear Session logs",
-                        tint = Color(0xFFE6DFD5),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                // Mode Toggle
-                IconButton(
-                    onClick = { viewModel.toggleModelMode() },
-                    modifier = Modifier
-                        .height(36.dp)
-                        .background(Color(0xFF121212), RoundedCornerShape(8.dp))
-                        .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
-                        .testTag("network_mode_toggle")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            if (mode == "Online Hybrid") Icons.Default.Cloud else Icons.Default.CloudOff,
-                            contentDescription = "Core Engine Mode",
-                            tint = Color(0xFFE6DFD5),
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Text(
-                            text = if (mode == "Online Hybrid") "Hybrid" else "Local",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFFE6DFD5)
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Center visual pulsing sphere
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1.3f),
-            contentAlignment = Alignment.Center
-        ) {
-            NovaPulsingSphere(isListening, isProcessing, isSpeaking, activeApp)
-        }
-
-        // Suggestions bar
-        LazyRowSuggestions(
-            alwaysOnWake = alwaysOnWake,
-            onSuggestionClicked = { suggestion ->
-                inputVal = suggestion
-            }
+    // Classic Obsidian Slate palette
+    val backgroundGradient = Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFF060608), 
+            Color(0xFF0F0E13)  
         )
+    )
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Chat Bubble area
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        contentWindowInsets = WindowInsets.systemBars
+    ) { innerPadding ->
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(2f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF121212))
-                .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(12.dp))
-                .padding(8.dp)
+                .fillMaxSize()
+                .background(backgroundGradient)
+                .padding(innerPadding)
         ) {
-            if (logs.isEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        Icons.Default.ChatBubbleOutline,
-                        contentDescription = null,
-                        tint = Color(0x33FFFFFF),
-                        modifier = Modifier.size(36.dp)
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        "No conversations recorded.\nSay " + '"' + "Hey Nova" + '"' + " or ask below.",
-                        color = Color(0x66FFFFFF),
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(logs) { log ->
-                        SpeechBubble(log)
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Bottom query field & Toggle listener mic
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Wake mode indicator toggle
-            IconButton(
-                onClick = { viewModel.toggleWakeWord() },
+            Column(
                 modifier = Modifier
-                    .size(44.dp)
-                    .background(
-                        if (alwaysOnWake) Color(0xFFE6DFD5) else Color(0xFF121212),
-                        RoundedCornerShape(8.dp)
-                    )
-                    .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
-                    .testTag("wake_word_always_on")
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
             ) {
-                Icon(
-                    if (alwaysOnWake) Icons.Default.Hearing else Icons.Default.HearingDisabled,
-                    contentDescription = "Always Listening status toggle",
-                    tint = if (alwaysOnWake) Color(0xFF0D0D0D) else Color(0xFF8E8E93),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            OutlinedTextField(
-                value = inputVal,
-                onValueChange = { inputVal = it },
-                placeholder = { Text("Ask Nova anything...", color = Color(0xFF8E8E93), fontSize = 13.sp) },
-                singleLine = true,
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("command_input_field"),
-                shape = RoundedCornerShape(8.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color(0xFFE6DFD5),
-                    unfocusedBorderColor = Color(0xFF1F1F1F),
-                    focusedContainerColor = Color(0xFF121212),
-                    unfocusedContainerColor = Color(0xFF121212)
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = {
-                    if (inputVal.trim().isNotEmpty()) {
-                        viewModel.submitCommand(inputVal)
-                        inputVal = ""
-                        keyboardController?.hide()
+                // Pristine Sleek Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "N O V A",
+                            fontSize = 19.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE6DFD5),
+                            letterSpacing = 3.sp
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(top = 2.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (mode == "Online Hybrid") Color(0xFFD0BCFF) else Color(0xFFA8A29A)
+                                    )
+                            )
+                            Spacer(modifier = Modifier.size(6.dp))
+                            Text(
+                                text = if (mode == "Online Hybrid") "Hybrid AI Core" else "Local Storage Engine (Direct)",
+                                fontSize = 11.sp,
+                                color = Color(0xFF8B8A9E),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
-                }),
-                trailingIcon = {
-                    if (inputVal.isNotEmpty()) {
-                        IconButton(onClick = { inputVal = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Clear Text", tint = Color.Gray)
+
+                    // Header Actions
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Permissions panel drawer button
+                        IconButton(
+                            onClick = { showPermissionsPanel = !showPermissionsPanel },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(Color(0xFF16142A), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFF2E2445), RoundedCornerShape(8.dp))
+                                .testTag("toggle_security_panel")
+                        ) {
+                            Icon(
+                                Icons.Default.Shield,
+                                contentDescription = "System Security status",
+                                tint = if (showPermissionsPanel) Color(0xFFD0BCFF) else Color(0xFF8B8A9E),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        // Clear Logs
+                        IconButton(
+                            onClick = { viewModel.clearAllLogs() },
+                            modifier = Modifier
+                                .size(36.dp)
+                                .background(Color(0xFF121212), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
+                                .testTag("clear_logs_button")
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Clear conversation buffers",
+                                tint = Color(0xFFE6DFD5),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        // Local / Hybrid Toggle
+                        IconButton(
+                            onClick = { viewModel.toggleModelMode() },
+                            modifier = Modifier
+                                .height(36.dp)
+                                .background(Color(0xFF121212), RoundedCornerShape(8.dp))
+                                .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
+                                .testTag("network_mode_toggle")
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    if (mode == "Online Hybrid") Icons.Default.Cloud else Icons.Default.CloudOff,
+                                    contentDescription = "Connection context toggle",
+                                    tint = Color(0xFFE6DFD5),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = if (mode == "Online Hybrid") "Hybrid" else "Offline",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFE6DFD5)
+                                )
+                            }
                         }
                     }
                 }
-            )
 
-            // Submit / Trigger listen mic
-            IconButton(
-                onClick = {
-                    if (inputVal.trim().isNotEmpty()) {
-                        viewModel.submitCommand(inputVal)
-                        inputVal = ""
-                        keyboardController?.hide()
-                    } else {
-                        viewModel.setListening(!isListening)
+                // Callouts for Download Provision status/Wikipedia offline databases
+                AnimatedVisibility(
+                    visible = isDownloading,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1625)),
+                        border = BorderStroke(1.dp, Color(0xFF32284F)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Download, contentDescription = null, tint = Color(0xFFD0BCFF), modifier = Modifier.size(18.dp))
+                                    Text("Wikipedia Offline DB Provisioning...", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Text("${(downloadProgress * 100).toInt()}%", color = Color(0xFFD0BCFF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LinearProgressIndicator(
+                                progress = { downloadProgress },
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                                color = Color(0xFFD0BCFF),
+                                trackColor = Color(0xFF100B1E)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Storing high-fidelity Wikipedia summary tables onto SD card: ${offlineDbSize} MB / 42 MB complete.",
+                                color = Color(0xFF8B8A9E),
+                                fontSize = 11.sp
+                            )
+                        }
                     }
-                },
-                modifier = Modifier
-                    .size(44.dp)
-                    .background(
-                        if (isListening) Color(0xFFE6DFD5) else Color(0xFF121212),
-                        RoundedCornerShape(8.dp)
-                    )
-                    .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
-                    .testTag("action_execute_button")
-            ) {
-                Icon(
-                    if (inputVal.trim().isNotEmpty()) Icons.Default.Send else Icons.Default.Mic,
-                    contentDescription = "Dispatch voice trigger",
-                    tint = if (isListening) Color(0xFF0D0D0D) else Color(0xFFE6DFD5),
-                    modifier = Modifier.size(20.dp)
+                }
+
+                // Display info when offline database exists
+                AnimatedVisibility(
+                    visible = !isDownloading && offlineDbExists && logs.size <= 2,
+                    enter = slideInVertically() + fadeIn(),
+                    exit = slideOutVertically() + fadeOut()
+                ) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0E13)),
+                        border = BorderStroke(0.5.dp, Color(0xFF1E1C24)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(Icons.Default.CloudQueue, contentDescription = null, tint = Color(0xFFB39DDB), modifier = Modifier.size(16.dp))
+                            Text(
+                                text = "Offline Wiki Index loaded (${offlineDbSize} MB). Talk naturally in Bengali or English!",
+                                color = Color(0xFFA8A29A),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        }
+                    }
+                }
+
+                // Collapsible Security/Permissions Overlay Control
+                AnimatedVisibility(
+                    visible = showPermissionsPanel,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    Box(modifier = Modifier.padding(vertical = 8.dp)) {
+                        InlinePermissionsPanel(viewModel) {
+                            showPermissionsPanel = false
+                        }
+                    }
+                }
+
+                // 2. Central visual pulsing intelligence sphere
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1.2f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    NovaPulsingSphere(isListening, isProcessing, isSpeaking, activeApp)
+                }
+
+                // 3. Suggestions Horizontal Row
+                LazyRowSuggestions(
+                    alwaysOnWake = alwaysOnWake,
+                    onSuggestionClicked = { inputVal = it }
                 )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // 4. Clean Immersive Chat Area
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(2.0f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFF0B0B0D))
+                        .border(1.dp, Color(0xFF16161B), RoundedCornerShape(14.dp))
+                        .padding(8.dp)
+                ) {
+                    if (logs.isEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                Icons.Default.ChatBubbleOutline,
+                                contentDescription = null,
+                                tint = Color(0x1AFFFFFF),
+                                modifier = Modifier.size(38.dp)
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text(
+                                "No logs registered.\nSay \"Hey Nova\" or \"নোভা, কল করো মম কে!\"",
+                                color = Color(0x4DFFFFFF),
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(logs) { log ->
+                                SpeechBubble(log)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 5. Query Fields and Dynamic Mic trigger handles
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Always listening wake switch
+                    IconButton(
+                        onClick = { viewModel.toggleWakeWord() },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                if (alwaysOnWake) Color(0xFFE6DFD5) else Color(0xFF121212),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
+                            .testTag("wake_word_always_on")
+                    ) {
+                        Icon(
+                            if (alwaysOnWake) Icons.Default.Hearing else Icons.Default.HearingDisabled,
+                            contentDescription = "Toggle wake word trigger",
+                            tint = if (alwaysOnWake) Color(0xFF0F0E13) else Color(0xFF8E8E93),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    OutlinedTextField(
+                        value = inputVal,
+                        onValueChange = { inputVal = it },
+                        placeholder = { Text("নোভা কে জিজ্ঞেস করুন...", color = Color(0xFF8B8A9E), fontSize = 13.sp) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("command_input_field"),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFFE6DFD5),
+                            unfocusedBorderColor = Color(0xFF1A1A22),
+                            focusedContainerColor = Color(0xFF121212),
+                            unfocusedContainerColor = Color(0xFF121212)
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = {
+                            if (inputVal.trim().isNotEmpty()) {
+                                viewModel.submitCommand(inputVal)
+                                inputVal = ""
+                                keyboardController?.hide()
+                            }
+                        }),
+                        trailingIcon = {
+                            if (inputVal.isNotEmpty()) {
+                                IconButton(onClick = { inputVal = "" }) {
+                                    Icon(Icons.Default.Clear, contentDescription = "Clear", tint = Color.Gray)
+                                }
+                            }
+                        }
+                    )
+
+                    // Execute mic/text trigger
+                    IconButton(
+                        onClick = {
+                            if (inputVal.trim().isNotEmpty()) {
+                                viewModel.submitCommand(inputVal)
+                                inputVal = ""
+                                keyboardController?.hide()
+                            } else {
+                                viewModel.setListening(!isListening)
+                            }
+                        },
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(
+                                if (isListening) Color(0xFFE6DFD5) else Color(0xFF121212),
+                                RoundedCornerShape(8.dp)
+                            )
+                            .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp))
+                            .testTag("action_execute_button")
+                    ) {
+                        Icon(
+                            if (inputVal.trim().isNotEmpty()) Icons.Default.Send else Icons.Default.Mic,
+                            contentDescription = "Trigger Speech input",
+                            tint = if (isListening) Color(0xFF0F0E13) else Color(0xFFE6DFD5),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+fun InlinePermissionsPanel(viewModel: NovaViewModel, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    var hasMic by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
+    }
+    var hasContacts by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED)
+    }
+    var hasCall by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED)
+    }
+    var hasSms by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED)
+    }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        hasMic = results[Manifest.permission.RECORD_AUDIO] ?: hasMic
+        hasContacts = results[Manifest.permission.READ_CONTACTS] ?: hasContacts
+        hasCall = results[Manifest.permission.CALL_PHONE] ?: hasCall
+        hasSms = results[Manifest.permission.SEND_SMS] ?: hasSms
+        viewModel.loadSystemContacts()
+        Toast.makeText(context, "System permission states synchronized.", Toast.LENGTH_SHORT).show()
+    }
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF14131D)),
+        border = BorderStroke(1.dp, Color(0xFF28253A)),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Android System Permissions Sync",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                IconButton(onClick = onDismiss, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Close, contentDescription = "Close description", tint = Color.Gray, modifier = Modifier.size(16.dp))
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Nova maps actual Android actions (routing dialers, sending WhatsApp/SMS, capturing offline speech). Standard permissions allow real interactions.",
+                color = Color(0xFF8B8A9E),
+                fontSize = 11.sp,
+                lineHeight = 15.sp
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Button(
+                onClick = {
+                    launcher.launch(
+                        arrayOf(
+                            Manifest.permission.RECORD_AUDIO,
+                            Manifest.permission.READ_CONTACTS,
+                            Manifest.permission.CALL_PHONE,
+                            Manifest.permission.SEND_SMS
+                        )
+                    )
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD0BCFF)),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(38.dp)
+                    .testTag("request_native_permissions_button")
+            ) {
+                Text("Sync Native System Permissions dialog", color = Color(0xFF120E2C), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PermissionMiniRow("Microphone Voice", "Reads microphone waveforms dynamically.", hasMic)
+                PermissionMiniRow("Contacts Index", "Reads actual ContentProvider common names.", hasContacts)
+                PermissionMiniRow("Call Dialer", "Instantly routes standard tel numbers.", hasCall)
+                PermissionMiniRow("SMS Direct", "Opens sending SMS composer with values.", hasSms)
+            }
+        }
+    }
+}
+
+@Composable
+fun PermissionMiniRow(title: String, desc: String, isGranted: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+            Text(desc, color = Color(0xFF8B8A9E), fontSize = 10.sp)
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (isGranted) Color(0xFF81C784) else Color(0xFFE57373))
+            )
+            Text(
+                text = if (isGranted) "Granted" else "Missing",
+                color = if (isGranted) Color(0xFF81C784) else Color(0xFFE57373),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -427,16 +583,17 @@ fun LazyRowSuggestions(
     alwaysOnWake: Boolean,
     onSuggestionClicked: (String) -> Unit
 ) {
-    val prefixes = if (alwaysOnWake) listOf("Hey Nova, ", "Nova, ", "Hey Assistant, ") else listOf("", "", "", "")
+    val prefixes = if (alwaysOnWake) listOf("Hey Nova, ", "নোভা, ", "Hey Assistant, ") else listOf("", "", "", "")
     val items = listOf(
-        "open YouTube",
-        "open settings",
-        "call Mom",
+        "কল করো মা কে",
         "send a WhatsApp message to Rahim",
-        "turn on WiFi",
+        "গুগল করো বাংলাদেশ",
+        "ফেসবুকে পোস্ট করো নোভা অনেক সুন্দর!",
+        "open YouTube",
+        "ওয়াইফাই চালু করো",
         "volume up",
-        "tell me a joke",
-        "what reminders do I have today?"
+        "স্ক্রিনশট নাও",
+        "একটি কৌতুক বলো"
     )
 
     androidx.compose.foundation.lazy.LazyRow(
@@ -447,17 +604,21 @@ fun LazyRowSuggestions(
         contentPadding = PaddingValues(horizontal = 2.dp)
     ) {
         items(items) { baseCmd ->
-            val finalCmd = if (baseCmd.startsWith("what") || baseCmd.startsWith("tell") || baseCmd.startsWith("volume")) {
-                prefixes[1] + baseCmd
+            // Smart Bengali vs English prefixing
+            val prefix = if (baseCmd.contains(Regex("[ক- Mahoneyক্ষ]")) || baseCmd.contains("মম") || baseCmd.contains("মা")) {
+                prefixes[1]
+            } else if (baseCmd.startsWith("what") || baseCmd.startsWith("tell") || baseCmd.startsWith("volume") || baseCmd.startsWith("send")) {
+                prefixes[0]
             } else {
-                prefixes[0] + baseCmd
+                ""
             }
+            val finalCmd = prefix + baseCmd
             Card(
                 shape = RoundedCornerShape(18.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF141416)),
                 modifier = Modifier
                     .clickable { onSuggestionClicked(finalCmd) }
-                    .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(18.dp))
+                    .border(1.dp, Color(0xFF1A1A1E), RoundedCornerShape(18.dp))
                     .testTag("suggestion_$baseCmd")
             ) {
                 Text(
@@ -479,11 +640,10 @@ fun NovaPulsingSphere(
     isSpeaking: Boolean,
     activeApp: String
 ) {
-    // Pulse animation states
     val transition = rememberInfiniteTransition(label = "pulse")
     val pulseSize by transition.animateFloat(
-        initialValue = 140f,
-        targetValue = 180f,
+        initialValue = 135f,
+        targetValue = 175f,
         animationSpec = infiniteRepeatable(
             animation = tween(1500, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -491,965 +651,131 @@ fun NovaPulsingSphere(
         label = "pulse_size"
     )
 
-    // Base color matches minimalist alabaster sand elements
     val activeColor = when {
-        isListening -> Color(0xFFE6DFD5)       // Warm Sand Alabaster
-        isProcessing -> Color(0xFFA8A29A)      // Platinum Slate
-        isSpeaking -> Color(0xFFFAF9F6)        // Pure Alabaster
-        else -> Color(0xFF333333)              // Quiet dark graphite
+        isListening -> Color(0xFFD0BCFF)       // Soft purple light
+        isProcessing -> Color(0xFFA8A29A)      // Warm Platinum Slate
+        isSpeaking -> Color(0xFFE6DFD5)        // Ambient sand pearl
+        else -> Color(0xFF2E2D38)              // Obsidian graphite glow
     }
 
-    val stateText = when {
-        isListening -> "Listening..."
-        isProcessing -> "Processing..."
-        isSpeaking -> "Speaking..."
-        else -> "Standby"
-    }
-
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+    Box(
+        modifier = Modifier
+            .size(200.dp)
+            .testTag("nova_intelligence_sphere"),
+        contentAlignment = Alignment.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(200.dp)
-                .testTag("nova_pulsing_sphere"),
-            contentAlignment = Alignment.Center
-        ) {
-            // Ambient classic background ring
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val circleRadius = if (isListening || isSpeaking || isProcessing) pulseSize else 120f
-                val brush = Brush.radialGradient(
-                    colors = listOf(
-                        activeColor.copy(alpha = 0.12f),
-                        activeColor.copy(alpha = 0.02f),
-                        Color.Transparent
-                    ),
-                    center = center,
-                    radius = circleRadius
-                )
-                drawCircle(
-                    brush = brush,
-                    radius = circleRadius,
-                    center = center
-                )
-
-                // Thin minimalist outline ring during action
-                if (isListening || isProcessing || isSpeaking) {
-                    drawCircle(
-                        color = activeColor.copy(alpha = 0.20f),
-                        radius = 110f,
-                        center = center,
-                        style = Stroke(width = 1.dp.toPx())
-                    )
-                }
-            }
-
-            // Core elegant minimalist disk
-            Card(
-                shape = CircleShape,
-                modifier = Modifier
-                    .size(96.dp)
-                    .border(1.dp, Color(0xFF1F1F1F), CircleShape),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF121212))
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(68.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.radialGradient(
-                                    colors = listOf(
-                                        activeColor.copy(alpha = 0.85f),
-                                        Color(0xFF141414)
-                                    )
-                                )
-                            )
-                    ) {
-                        Icon(
-                            imageVector = when {
-                                isListening -> Icons.Default.Hearing
-                                isProcessing -> Icons.Default.SettingsSuggest
-                                isSpeaking -> Icons.Default.RecordVoiceOver
-                                else -> Icons.Default.Mic
-                            },
-                            contentDescription = "Visual State Indicator Icon",
-                            tint = if (isListening || isSpeaking || isProcessing) Color(0xFF080808) else Color(0xFFF5F5F7),
-                            modifier = Modifier
-                                .size(24.dp)
-                                .align(Alignment.Center)
-                        )
-                    }
-                }
-            }
+        // Glowing Aura Canvas
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val centerOffset = Offset(size.width / 2, size.height / 2)
+            drawCircle(
+                color = activeColor.copy(alpha = if (isListening || isSpeaking || isProcessing) 0.15f else 0.05f),
+                radius = pulseSize,
+                center = centerOffset
+            )
+            drawCircle(
+                color = activeColor.copy(alpha = if (isListening || isSpeaking || isProcessing) 0.35f else 0.10f),
+                radius = pulseSize - 25f,
+                center = centerOffset
+            )
+            // Delicate Orbit line
+            drawCircle(
+                brush = Brush.sweepGradient(listOf(activeColor, Color.Transparent, activeColor)),
+                radius = pulseSize - 5f,
+                center = centerOffset,
+                style = Stroke(width = 1.5f, cap = StrokeCap.Round)
+            )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // State label
-        Text(
-            text = stateText,
-            color = Color(0xFFFAF9F6),
-            fontWeight = FontWeight.Medium,
-            fontSize = 13.sp,
-            textAlign = TextAlign.Center,
-            letterSpacing = 1.sp
-        )
-
-        Spacer(modifier = Modifier.height(2.dp))
-
-        // Active app or status matching classic details
-        Text(
-            text = if (activeApp.isNotEmpty()) "Active context: $activeApp" else "System idle",
-            color = Color(0xFF8E8E93),
-            fontWeight = FontWeight.Light,
-            fontSize = 11.sp,
-            textAlign = TextAlign.Center
-        )
+        // Central Minimalist Core Sphere
+        Box(
+            modifier = Modifier
+                .size(75.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(activeColor, activeColor.copy(alpha = 0.8f), Color(0xFF060608))
+                    )
+                )
+                .shadow(elevation = 10.dp, shape = CircleShape)
+                .border(2.dp, activeColor.copy(alpha = 0.4f), CircleShape)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = when {
+                        isListening -> Icons.Default.Hearing
+                        isProcessing -> Icons.Default.Cyclone
+                        isSpeaking -> Icons.Default.VolumeUp
+                        else -> Icons.Default.Mic
+                    },
+                    contentDescription = null,
+                    tint = if (isListening || isSpeaking || isProcessing) Color(0xFF0F0E13) else Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
     }
 }
 
 @Composable
 fun SpeechBubble(log: AssistantLog) {
     val isUser = log.sender == "user"
-    val cardBg = if (isUser) Color(0xFFE6DFD5) else Color(0xFF181818)
+    val bubbleColor = if (isUser) Color(0xFF1E1B29) else Color(0xFF121212)
+    val textColor = if (isUser) Color.White else Color(0xFFE6DFD5)
     val alignment = if (isUser) Alignment.End else Alignment.Start
-    val txtColor = if (isUser) Color(0xFF080808) else Color(0xFFFAF9F6)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("chat_bubble_${log.sender}"),
+            .testTag("speech_bubble_${log.sender}"),
         horizontalAlignment = alignment
     ) {
         Row(
-            verticalAlignment = Alignment.Top,
             horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
-            modifier = Modifier.fillMaxWidth(0.88f)
+            modifier = Modifier.fillMaxWidth()
         ) {
-            if (!isUser) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF121212))
-                        .border(1.dp, Color(0xFF1F1F1F), CircleShape)
-                        .padding(4.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Android,
-                        contentDescription = "Nova icon",
-                        tint = Color(0xFFE6DFD5),
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-
-            Card(
-                shape = RoundedCornerShape(
-                    topStart = 12.dp,
-                    topEnd = 12.dp,
-                    bottomStart = if (isUser) 12.dp else 2.dp,
-                    bottomEnd = if (isUser) 2.dp else 12.dp
-                ),
-                colors = CardDefaults.cardColors(containerColor = cardBg),
+            Box(
                 modifier = Modifier
+                    .widthIn(max = 280.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = 14.dp,
+                            topEnd = 14.dp,
+                            bottomStart = if (isUser) 14.dp else 2.dp,
+                            bottomEnd = if (isUser) 2.dp else 14.dp
+                        )
+                    )
+                    .background(bubbleColor)
                     .border(
                         1.dp,
-                        if (isUser) Color.Transparent else Color(0xFF1F1F1F),
+                        if (isUser) Color(0xFF342E46) else Color(0xFF1F1F1F),
                         RoundedCornerShape(
-                            topStart = 12.dp,
-                            topEnd = 12.dp,
-                            bottomStart = if (isUser) 12.dp else 2.dp,
-                            bottomEnd = if (isUser) 2.dp else 12.dp
+                            topStart = 14.dp,
+                            topEnd = 14.dp,
+                            bottomStart = if (isUser) 14.dp else 2.dp,
+                            bottomEnd = if (isUser) 2.dp else 14.dp
                         )
                     )
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
             ) {
-                Column(modifier = Modifier.padding(10.dp)) {
-                    Text(
-                        text = log.message,
-                        color = txtColor,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal,
-                        lineHeight = 17.sp
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = formatTime(log.timestamp),
-                        color = if (isUser) Color(0x99222222) else Color(0x99FAF9F6),
-                        fontSize = 9.sp,
-                        modifier = Modifier.align(Alignment.End)
-                    )
-                }
-            }
-
-            if (isUser) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFE6DFD5))
-                        .padding(4.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Person,
-                        contentDescription = "User icon",
-                        tint = Color(0xFF080808),
-                        modifier = Modifier.size(14.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-// Reminders local Persistence UI tab
-@Composable
-fun RemindersTab(viewModel: NovaViewModel) {
-    val reminders by viewModel.reminders.collectAsStateWithLifecycle()
-    var openAddDialog by remember { mutableStateOf(false) }
-    var titleInput by remember { mutableStateOf("") }
-    var hourInput by remember { mutableStateOf("08") }
-    var minuteInput by remember { mutableStateOf("30") }
-    var periodInput by remember { mutableStateOf("AM") } // AM or PM
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
                 Text(
-                    "SQLite Task Memory",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFFFAF9F6)
-                )
-                Text(
-                    "Manage reminders and events offline",
-                    fontSize = 11.sp,
-                    color = Color(0xFF8E8E93)
-                )
-            }
-
-            Button(
-                onClick = { openAddDialog = true },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE6DFD5)),
-                shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.testTag("add_reminder_trigger_button")
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add tasks", tint = Color(0xFF080808), modifier = Modifier.size(16.dp))
-                    Text("Add", color = Color(0xFF080808), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (reminders.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Icon(
-                    Icons.Default.PlaylistAdd,
-                    contentDescription = null,
-                    tint = Color(0x22FFFFFF),
-                    modifier = Modifier.size(48.dp)
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    "No offline reminders found.\nCreate one above to update the database.",
-                    color = Color(0x55FFFFFF),
+                    text = log.message,
+                    color = textColor,
                     fontSize = 13.sp,
-                    textAlign = TextAlign.Center
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(reminders) { reminder ->
-                    ReminderListItem(
-                        reminder = reminder,
-                        onCheckedChange = { viewModel.toggleReminderCompleted(reminder) },
-                        onDeleteClick = { viewModel.deleteManualReminder(reminder.id) }
-                    )
-                }
-            }
-        }
-    }
-
-    // SQLite Add Reminder Dialog sheet
-    if (openAddDialog) {
-        AlertDialog(
-            onDismissRequest = { openAddDialog = false },
-            containerColor = Color(0xFF121212),
-            modifier = Modifier.border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(28.dp)),
-            title = { Text("Schedule Offline Reminder", color = Color(0xFFFAF9F6), fontWeight = FontWeight.Medium, fontSize = 16.sp) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
-                        value = titleInput,
-                        onValueChange = { titleInput = it },
-                        label = { Text("Reminder Title", color = Color(0xFF8E8E93)) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFFE6DFD5),
-                            unfocusedBorderColor = Color(0xFF1F1F1F),
-                            focusedContainerColor = Color(0xFF0D0D0D),
-                            unfocusedContainerColor = Color(0xFF0D0D0D)
-                        ),
-                        singleLine = true,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("dialog_reminder_title_field")
-                    )
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        OutlinedTextField(
-                            value = hourInput,
-                            onValueChange = { if (it.length <= 2) hourInput = it },
-                            label = { Text("HH", color = Color(0xFF8E8E93)) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedBorderColor = Color(0xFFE6DFD5),
-                                unfocusedBorderColor = Color(0xFF1F1F1F),
-                                focusedContainerColor = Color(0xFF0D0D0D),
-                                unfocusedContainerColor = Color(0xFF0D0D0D)
-                            ),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-                        OutlinedTextField(
-                            value = minuteInput,
-                            onValueChange = { if (it.length <= 2) minuteInput = it },
-                            label = { Text("MM", color = Color(0xFF8E8E93)) },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                focusedBorderColor = Color(0xFFE6DFD5),
-                                unfocusedBorderColor = Color(0xFF1F1F1F),
-                                focusedContainerColor = Color(0xFF0D0D0D),
-                                unfocusedContainerColor = Color(0xFF0D0D0D)
-                            ),
-                            singleLine = true,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        // AM / PM Selectable Row
-                        Row(
-                            modifier = Modifier
-                                .weight(1.5f)
-                                .border(1.dp, Color(0xFF1F1F1F), RoundedCornerShape(8.dp)),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .background(
-                                        if (periodInput == "AM") Color(0xFFE6DFD5) else Color.Transparent,
-                                        RoundedCornerShape(8.dp)
-                                    )
-                                    .clickable { periodInput = "AM" }
-                                    .padding(vertical = 12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("AM", color = if (periodInput == "AM") Color(0xFF080808) else Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .background(
-                                        if (periodInput == "PM") Color(0xFFE6DFD5) else Color.Transparent,
-                                        RoundedCornerShape(8.dp)
-                                    )
-                                    .clickable { periodInput = "PM" }
-                                    .padding(vertical = 12.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text("PM", color = if (periodInput == "PM") Color(0xFF080808) else Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (titleInput.trim().isNotEmpty()) {
-                            val finalTime = "${hourInput.padStart(2, '0')}:${minuteInput.padStart(2, '0')} $periodInput"
-                            viewModel.addManualReminder(titleInput, finalTime)
-                            titleInput = ""
-                            openAddDialog = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE6DFD5)),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.testTag("dialog_reminder_confirm_button")
-                ) {
-                    Text("Save", color = Color(0xFF080808), fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { openAddDialog = false }) {
-                    Text("Cancel", color = Color(0xFF8E8E93))
-                }
-            }
-        )
-    }
-}
-
-@Composable
-fun ReminderListItem(
-    reminder: Reminder,
-    onCheckedChange: (Boolean) -> Unit,
-    onDeleteClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("reminder_card_${reminder.id}"),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF121212)),
-        border = BorderStroke(1.dp, Color(0xFF1F1F1F))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                Checkbox(
-                    checked = reminder.isCompleted,
-                    onCheckedChange = onCheckedChange,
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = Color(0xFFE6DFD5),
-                        checkmarkColor = Color(0xFF080808)
-                    ),
-                    modifier = Modifier.testTag("reminder_checkbox_${reminder.id}")
-                )
-
-                Column {
-                    Text(
-                        text = reminder.title,
-                        color = if (reminder.isCompleted) Color(0xFF707070) else Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = if (reminder.isCompleted) LocalTextStyle.current.copy(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough) else LocalTextStyle.current
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(Icons.Default.AccessTime, contentDescription = null, tint = Color(0xFF8E8E93), modifier = Modifier.size(12.dp))
-                        Text(
-                            text = reminder.timeLabel,
-                            color = Color(0xFF8E8E93),
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-            }
-
-            IconButton(
-                onClick = onDeleteClick,
-                modifier = Modifier
-                    .size(40.dp)
-                    .testTag("delete_reminder_button_${reminder.id}")
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete Reminder",
-                    tint = Color(0xFFEF9A9A),
-                    modifier = Modifier.size(18.dp)
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.Normal
                 )
             }
         }
-    }
-}
-
-// Dialog for seeded Automation routines & seed Contacts manager helper
-@Composable
-fun AutomationContactsTab(viewModel: NovaViewModel) {
-    val routines by viewModel.routines.collectAsStateWithLifecycle()
-    val contacts by viewModel.contacts.collectAsStateWithLifecycle()
-
-    var activeSubTab by remember { mutableIntStateOf(0) } // 0 -> Routines, 1 -> Contacts
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
-        TabRow(
-            selectedTabIndex = activeSubTab,
-            containerColor = Color(0xFF16142A),
-            contentColor = Color(0xFFD0BCFF),
-            modifier = Modifier
-                .clip(RoundedCornerShape(12.dp))
-                .border(1.dp, Color(0xFF2E2445), RoundedCornerShape(12.dp))
-        ) {
-            Tab(
-                selected = activeSubTab == 0,
-                onClick = { activeSubTab = 0 },
-                text = { Text("Automations") },
-                modifier = Modifier.testTag("subtab_routines")
-            )
-            Tab(
-                selected = activeSubTab == 1,
-                onClick = { activeSubTab = 1 },
-                text = { Text("Contacts") },
-                modifier = Modifier.testTag("subtab_contacts")
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (activeSubTab == 0) {
-            // Routines view execution console
-            Text(
-                "Automation Routines",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-            Text(
-                "Trigger automated, synchronized tasks like WiFi actions",
-                fontSize = 12.sp,
-                color = Color(0xFF8B8A9E)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(routines) { routine ->
-                    RoutineListItem(
-                        routine = routine,
-                        onTriggerClick = { viewModel.triggerRoutineSequence(routine) }
-                    )
-                }
-            }
-        } else {
-            // Contacts database control
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        "Local Contacts Manager",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        "Manage offline contacts for dials/SMS routing",
-                        fontSize = 12.sp,
-                        color = Color(0xFF8B8A9E)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(contacts) { contact ->
-                    ContactListItem(
-                        contact = contact,
-                        onDelete = { viewModel.deleteManualContact(contact) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun RoutineListItem(routine: Routine, onTriggerClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("routine_card_${routine.id}"),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF16142A)),
-        border = BorderStroke(1.dp, Color(0xFF2E2445))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = routine.name,
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = routine.actionsSummary,
-                    color = Color(0xFF8B8A9E),
-                    fontSize = 12.sp
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                // Badges
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val list = routine.actionsList.split(",")
-                    list.forEach { action ->
-                        Box(
-                            modifier = Modifier
-                                .background(Color(0xFF2C2442), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = action.replace("_", " "),
-                                color = Color(0xFFD0BCFF),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-            }
-
-            Button(
-                onClick = onTriggerClick,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5D40A8)),
-                shape = RoundedCornerShape(10.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                modifier = Modifier
-                    .testTag("trigger_routine_${routine.id}")
-                    .border(1.dp, Color(0xFF7E57C2), RoundedCornerShape(10.dp))
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = "Run Routine", tint = Color.White, modifier = Modifier.size(16.dp))
-                    Text("Trigger", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ContactListItem(contact: Contact, onDelete: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("contact_card_${contact.name}"),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF16142A)),
-        border = BorderStroke(1.dp, Color(0xFF2E2445))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF2C2442)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        if (contact.isFavorite) Icons.Default.Star else Icons.Default.Person,
-                        contentDescription = null,
-                        tint = if (contact.isFavorite) Color(0xFFFFD54F) else Color(0xFFD0BCFF),
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                Column {
-                    Text(
-                        text = contact.name,
-                        color = Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = contact.phoneNumber,
-                        color = Color(0xFF8B8A9E),
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = contact.email,
-                        color = Color(0x60FFFFFF),
-                        fontSize = 11.sp
-                    )
-                }
-            }
-
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier
-                    .size(40.dp)
-                    .testTag("delete_contact_button_${contact.name}")
-            ) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete Contact",
-                    tint = Color(0xFFEF9A9A),
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-    }
-}
-
-// System Permission & Mocks Status Controller tab
-@Composable
-fun SystemPermissionsTab(viewModel: NovaViewModel) {
-    val wifiActive by viewModel.wifiActive.collectAsStateWithLifecycle()
-    val bluetoothActive by viewModel.bluetoothActive.collectAsStateWithLifecycle()
-    val context = LocalContext.current
-
-    // Observe local Android Permissions directly for SMS/Calls etc.
-    val permissionsToRequest = arrayOf(
-        Manifest.permission.SEND_SMS,
-        Manifest.permission.READ_CONTACTS,
-        Manifest.permission.CALL_PHONE,
-        Manifest.permission.RECORD_AUDIO
-    )
-
-    var hasSmsGrant by remember {
-        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED)
-    }
-    var hasContactsGrant by remember {
-        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED)
-    }
-    var hasCallGrant by remember {
-        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED)
-    }
-    var hasMicGrant by remember {
-        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        hasSmsGrant = results[Manifest.permission.SEND_SMS] ?: hasSmsGrant
-        hasContactsGrant = results[Manifest.permission.READ_CONTACTS] ?: hasContactsGrant
-        hasCallGrant = results[Manifest.permission.CALL_PHONE] ?: hasCallGrant
-        hasMicGrant = results[Manifest.permission.RECORD_AUDIO] ?: hasMicGrant
-        Toast.makeText(context, "System permission states synchronized.", Toast.LENGTH_SHORT).show()
-    }
-
-    // Custom overlays or mock switches for other accessibility rules
-    var mockAccessibilityService by remember { mutableStateOf(true) }
-    var mockNotificationAccess by remember { mutableStateOf(true) }
-    var mockOverlayPermission by remember { mutableStateOf(false) }
-    var mockStorageAccess by remember { mutableStateOf(true) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp)
-    ) {
         Text(
-            "Security & System Permissions",
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
+            text = formatTime(log.timestamp),
+            color = Color(0x3BFFFFFF),
+            fontSize = 9.sp,
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
         )
-        Text(
-            "Access settings details and coordinate Android features securely.",
-            fontSize = 12.sp,
-            color = Color(0xFF8B8A9E)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Button(
-            onClick = { permissionLauncher.launch(permissionsToRequest) },
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD0BCFF)),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("request_native_permissions_button")
-        ) {
-            Text("Request Native Permissions Dialog", color = Color(0xFF130E26), fontWeight = FontWeight.Bold)
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Grid of permission cards
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            item {
-                Text("Requested Voice permissions:", color = Color(0xFFD0BCFF), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Spacer(modifier = Modifier.height(4.dp))
-            }
-
-            item {
-                PermissionSwitchRow(
-                    title = "Microphone Access",
-                    description = "Required for wake-word listeners and speech recognition voice commands.",
-                    isChecked = hasMicGrant,
-                    onCheckedChange = { permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO)) },
-                    tag = "perm_mic"
-                )
-            }
-            item {
-                PermissionSwitchRow(
-                    title = "SMS Dispatch Permission",
-                    description = "Allows sending texts to contacts via offline SMS actions.",
-                    isChecked = hasSmsGrant,
-                    onCheckedChange = { permissionLauncher.launch(arrayOf(Manifest.permission.SEND_SMS)) },
-                    tag = "perm_sms"
-                )
-            }
-            item {
-                PermissionSwitchRow(
-                    title = "Contacts Directory Access",
-                    description = "Scans SQLite database contacts for voice dial lookup matching.",
-                    isChecked = hasContactsGrant,
-                    onCheckedChange = { permissionLauncher.launch(arrayOf(Manifest.permission.READ_CONTACTS)) },
-                    tag = "perm_contacts"
-                )
-            }
-            item {
-                PermissionSwitchRow(
-                    title = "Call Routing Permission",
-                    description = "Allows dialing phone actions directly to the calling dialer.",
-                    isChecked = hasCallGrant,
-                    onCheckedChange = { permissionLauncher.launch(arrayOf(Manifest.permission.CALL_PHONE)) },
-                    tag = "perm_call"
-                )
-            }
-
-            item {
-                Spacer(modifier = Modifier.height(10.dp))
-                Text("Background System Integrations:", color = Color(0xFFD0BCFF), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Spacer(modifier = Modifier.height(4.dp))
-            }
-
-            item {
-                PermissionSwitchRow(
-                    title = "Accessibility Service",
-                    description = "Required to simulation tap, scroll, and read on-screen widgets.",
-                    isChecked = mockAccessibilityService,
-                    onCheckedChange = { mockAccessibilityService = it },
-                    tag = "perm_accessibility"
-                )
-            }
-            item {
-                PermissionSwitchRow(
-                    title = "Notification Panel Access",
-                    description = "Allows reading, replying to, and filtering incoming alert notifications.",
-                    isChecked = mockNotificationAccess,
-                    onCheckedChange = { mockNotificationAccess = it },
-                    tag = "perm_notifications"
-                )
-            }
-            item {
-                PermissionSwitchRow(
-                    title = "System Overlays / Draw Top",
-                    description = "Allows drawing custom assistant UI above other active apps.",
-                    isChecked = mockOverlayPermission,
-                    onCheckedChange = { mockOverlayPermission = it },
-                    tag = "perm_overlays"
-                )
-            }
-            item {
-                PermissionSwitchRow(
-                    title = "Storage / SD Card Control",
-                    description = "Allows writing logs and Wikipedia summaries offline to SD card.",
-                    isChecked = mockStorageAccess,
-                    onCheckedChange = { mockStorageAccess = it },
-                    tag = "perm_storage"
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun PermissionSwitchRow(
-    title: String,
-    description: String,
-    isChecked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    tag: String
-) {
-    Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF16142A)),
-        border = BorderStroke(1.dp, Color(0xFF2E2445)),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text(description, color = Color(0xFF8B8A9E), fontSize = 11.sp, lineHeight = 14.sp)
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Switch(
-                checked = isChecked,
-                onCheckedChange = onCheckedChange,
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color(0xFF130E26),
-                    checkedTrackColor = Color(0xFFD0BCFF)
-                ),
-                modifier = Modifier.testTag(tag)
-            )
-        }
     }
 }
 
